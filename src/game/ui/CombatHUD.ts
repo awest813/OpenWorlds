@@ -261,7 +261,7 @@ export class CombatHUD {
             lineHeight: "1.6",
         });
         hint.innerHTML =
-            "WASD move &nbsp;|&nbsp; J / LMB attack &nbsp;|&nbsp; E dash-strike &nbsp;|&nbsp; Q spin-slash &nbsp;|&nbsp; Space dodge &nbsp;|&nbsp; F target &nbsp;|&nbsp; R reset";
+            "WASD move &nbsp;|&nbsp; J / LMB attack &nbsp;|&nbsp; E dash-strike &nbsp;|&nbsp; Q spin-slash &nbsp;|&nbsp; Space dodge &nbsp;|&nbsp; F target &nbsp;|&nbsp; T talk &nbsp;|&nbsp; R reset";
 
         // ── Assemble ──────────────────────────────────────────────────────
         this.root.appendChild(this.targetPanel);

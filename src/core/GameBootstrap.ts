@@ -7,7 +7,7 @@ import { Tools } from "@babylonjs/core/Misc/tools";
 import HavokPhysics from "@babylonjs/havok";
 
 import { InputManager } from "../game/input/InputManager";
-import { createArenaScene, ArenaSceneContext } from "../scenes/ArenaScene";
+import { createHubScene, HubSceneContext } from "../scenes/HubScene";
 
 /**
  * GameBootstrap owns the engine, scene, and top-level game loop.
@@ -17,7 +17,7 @@ export class GameBootstrap {
     private engine: Engine;
     private scene: Scene;
     private input: InputManager;
-    private arenaCtx: ArenaSceneContext;
+    private hubCtx: HubSceneContext;
     private physicsViewer: PhysicsViewer;
     private bodyShown = false;
     private readonly canvas: HTMLCanvasElement;
@@ -26,13 +26,13 @@ export class GameBootstrap {
         engine: Engine,
         scene: Scene,
         input: InputManager,
-        arenaCtx: ArenaSceneContext,
+        hubCtx: HubSceneContext,
         canvas: HTMLCanvasElement
     ) {
         this.engine = engine;
         this.scene = scene;
         this.input = input;
-        this.arenaCtx = arenaCtx;
+        this.hubCtx = hubCtx;
         this.canvas = canvas;
         this.physicsViewer = new PhysicsViewer(scene);
     }
@@ -48,9 +48,9 @@ export class GameBootstrap {
         scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin);
 
         const input = new InputManager(scene);
-        const arenaCtx = await createArenaScene(scene, input);
+        const hubCtx = await createHubScene(scene, input);
 
-        const boot = new GameBootstrap(engine, scene, input, arenaCtx, canvas);
+        const boot = new GameBootstrap(engine, scene, input, hubCtx, canvas);
         boot.bindDebugKeys(canvas);
         boot.startLoop(canvas);
         return boot;
@@ -72,26 +72,54 @@ export class GameBootstrap {
 
     private update(): void {
         const dt = this.engine.getDeltaTime() / 1000;
+        const ctx = this.hubCtx;
 
-        // Combat must run before PlayerController so the movement lock is
-        // already set when player.update() reads isMovementLocked().
-        this.arenaCtx.combatController.update(dt);
-        this.arenaCtx.player.update(dt);
-
-        // Pass dt = 0 to enemies during hit-pause so they freeze briefly
-        // in place, giving melee swings a punchy feel.
-        const enemyDt = this.arenaCtx.combatController.isHitPaused() ? 0 : dt;
-        for (const enemy of this.arenaCtx.enemies) {
-            enemy.update(enemyDt);
+        // NPC pulse animations run regardless of dialogue state
+        for (const npc of ctx.npcs) {
+            npc.update(dt);
         }
 
-        this.arenaCtx.targetSystem.update(dt);
-        this.arenaCtx.encounterManager.update(dt);
-        this.arenaCtx.combatHud.update(
-            this.arenaCtx.combatController,
-            this.arenaCtx.targetSystem,
-            this.arenaCtx.player.health,
-            this.arenaCtx.encounterManager
+        // Proximity detection always runs so the interact prompt stays current
+        const playerPos = ctx.player.getTransform().getAbsolutePosition();
+        ctx.interactionSystem.updateProximity(playerPos);
+
+        if (ctx.dialogueSystem.isActive()) {
+            // Dialogue mode: freeze movement/combat; only process dialogue input
+            ctx.dialogueSystem.update(this.input);
+        } else {
+            // Check for NPC interaction (T key near an NPC)
+            const npc = ctx.interactionSystem.checkInteract(this.input);
+            if (npc !== null) {
+                ctx.handleInteraction(npc);
+            }
+
+            // Combat must run before PlayerController so the movement lock is
+            // already set when player.update() reads isMovementLocked().
+            ctx.combatController.update(dt);
+            ctx.player.update(dt);
+
+            // Pass dt = 0 to enemies during hit-pause so they freeze briefly
+            // in place, giving melee swings a punchy feel.
+            const enemyDt = ctx.combatController.isHitPaused() ? 0 : dt;
+            for (const enemy of ctx.enemies) {
+                enemy.update(enemyDt);
+            }
+
+            ctx.targetSystem.update(dt);
+            ctx.encounterManager.update(dt);
+        }
+
+        // HUD updates always run so panels stay visible during dialogue
+        ctx.combatHud.update(
+            ctx.combatController,
+            ctx.targetSystem,
+            ctx.player.health,
+            ctx.encounterManager
+        );
+        ctx.questHud.update(
+            dt,
+            ctx.questManager,
+            ctx.interactionSystem.getNearbyNpc()?.name ?? null
         );
 
         // Flush single-frame input state last so all systems see it this tick.
@@ -101,9 +129,9 @@ export class GameBootstrap {
     private bindDebugKeys(canvas: HTMLCanvasElement): void {
         document.addEventListener("keydown", (e) => {
             if (e.key === "p") {
-                Tools.CreateScreenshot(this.engine, this.arenaCtx.player.camera.camera, {
+                Tools.CreateScreenshot(this.engine, this.hubCtx.player.camera.camera, {
                     width: canvas.width,
-                    height: canvas.height
+                    height: canvas.height,
                 });
             }
             if (e.key === "v") {
@@ -125,7 +153,7 @@ export class GameBootstrap {
                     });
                 }
             }
-            // R = quick arena reset (full page reload for prototype simplicity)
+            // R = quick reset (full page reload for prototype simplicity)
             if (e.key === "r" || e.key === "R") {
                 window.location.reload();
             }

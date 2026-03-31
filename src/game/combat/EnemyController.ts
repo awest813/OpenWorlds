@@ -143,6 +143,9 @@ export class EnemyController {
     /** Always Enemy — used by targeting and future companion logic. */
     readonly faction = Faction.Enemy;
 
+    /** Optional callback fired once when this enemy is killed. Used by quest systems. */
+    onKilled: (() => void) | null = null;
+
     private hitFlashTimer = 0;
     private readonly mat: PBRMetallicRoughnessMaterial;
     private readonly spawnPos: Vector3;
@@ -409,6 +412,7 @@ export class EnemyController {
         // Clean up any in-flight projectiles
         this.projectiles.forEach((p) => p.mesh.dispose());
         this.projectiles.length = 0;
+        this.onKilled?.();
     }
 }
 
