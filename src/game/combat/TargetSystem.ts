@@ -29,7 +29,9 @@ export class TargetSystem {
             return;
         }
         const idx = this.currentTarget ? this.targets.indexOf(this.currentTarget) : -1;
-        this.currentTarget = this.targets[(idx + 1) % this.targets.length];
+        // If current target was removed (idx === -1), start from the first target
+        const nextIdx = idx === -1 ? 0 : (idx + 1) % this.targets.length;
+        this.currentTarget = this.targets[nextIdx];
     }
 
     clearTarget(): void {

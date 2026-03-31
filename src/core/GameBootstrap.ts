@@ -15,37 +15,37 @@ import { createArenaScene, ArenaSceneContext } from "../scenes/ArenaScene";
  */
 export class GameBootstrap {
     private engine: Engine;
-    private scene!: Scene;
-    private input!: InputManager;
-    private arenaCtx!: ArenaSceneContext;
-    private physicsViewer!: PhysicsViewer;
+    private scene: Scene;
+    private input: InputManager;
+    private arenaCtx: ArenaSceneContext;
+    private physicsViewer: PhysicsViewer;
     private bodyShown = false;
 
-    private constructor(engine: Engine) {
+    private constructor(engine: Engine, scene: Scene, input: InputManager, arenaCtx: ArenaSceneContext) {
         this.engine = engine;
+        this.scene = scene;
+        this.input = input;
+        this.arenaCtx = arenaCtx;
+        this.physicsViewer = new PhysicsViewer(scene);
     }
 
     static async CreateAsync(canvas: HTMLCanvasElement): Promise<GameBootstrap> {
         const engine = new Engine(canvas);
         engine.displayLoadingUI();
 
-        const boot = new GameBootstrap(engine);
-        await boot.initScene();
-        boot.bindDebugKeys(canvas);
-        boot.startLoop(canvas);
-        return boot;
-    }
-
-    private async initScene(): Promise<void> {
         const havokInstance = await HavokPhysics();
         const havokPlugin = new HavokPlugin(true, havokInstance);
 
-        this.scene = new Scene(this.engine);
-        this.scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin);
+        const scene = new Scene(engine);
+        scene.enablePhysics(new Vector3(0, -9.81, 0), havokPlugin);
 
-        this.input = new InputManager(this.scene);
-        this.arenaCtx = await createArenaScene(this.scene, this.input);
-        this.physicsViewer = new PhysicsViewer(this.scene);
+        const input = new InputManager(scene);
+        const arenaCtx = await createArenaScene(scene, input);
+
+        const boot = new GameBootstrap(engine, scene, input, arenaCtx);
+        boot.bindDebugKeys(canvas);
+        boot.startLoop(canvas);
+        return boot;
     }
 
     private startLoop(canvas: HTMLCanvasElement): void {
