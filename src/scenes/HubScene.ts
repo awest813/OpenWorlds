@@ -231,7 +231,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
                 return [
                     {
                         speaker: "Elder Maren",
-                        text: `Please hurry — ${remaining} scout${remaining !== 1 ? "s" : ""} still threaten us. Head north through the gate.`,
+                        text: `Please hurry — ${remaining} scout${pluralS(remaining)} still threaten us. Head north through the gate.`,
                     },
                 ];
             }
@@ -399,4 +399,9 @@ function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void
         s.rotation.y = sx * 1.3;
         s.material = stoneMat;
     }
+}
+
+/** Returns an "s" suffix when count !== 1. */
+function pluralS(count: number): string {
+    return count !== 1 ? "s" : "";
 }

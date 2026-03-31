@@ -75,7 +75,7 @@ export class NpcController {
     update(dt: number): void {
         this.orbTimer += dt * 2.5;
         const pulse = 0.75 + Math.sin(this.orbTimer) * 0.25;
-        this.orbMat.emissiveColor = new Color3(1.0 * pulse, 0.85 * pulse, 0.1 * pulse);
+        this.orbMat.emissiveColor.set(1.0 * pulse, 0.85 * pulse, 0.1 * pulse);
         this.orbMesh.scaling.setAll(0.9 + Math.sin(this.orbTimer) * 0.1);
     }
 
