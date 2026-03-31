@@ -16,7 +16,7 @@ export class InputManager {
 
         window.addEventListener("keydown", (e) => {
             // Prevent browser defaults for game-reserved keys
-            if ([" ", "f", "e", "j", "Tab"].includes(e.key)) e.preventDefault();
+            if ([" ", "f", "e", "j", "t", "Tab"].includes(e.key)) e.preventDefault();
             if (!this.keyState.get(e.key)) {
                 this.justPressedSet.add(e.key);
             }
