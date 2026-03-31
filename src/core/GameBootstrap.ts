@@ -64,9 +64,17 @@ export class GameBootstrap {
 
     private update(): void {
         const dt = this.engine.getDeltaTime() / 1000;
+
+        // Combat must run before PlayerController so the movement lock is
+        // already set when player.update() reads isMovementLocked().
+        this.arenaCtx.combatController.update(dt);
         this.arenaCtx.player.update(dt);
         this.arenaCtx.enemy.update(dt);
         this.arenaCtx.targetSystem.update(dt);
+        this.arenaCtx.combatHud.update(this.arenaCtx.combatController, this.arenaCtx.targetSystem);
+
+        // Flush single-frame input state last so all systems see it this tick.
+        this.input.clearFrame();
     }
 
     private bindDebugKeys(canvas: HTMLCanvasElement): void {

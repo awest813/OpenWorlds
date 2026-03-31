@@ -14,11 +14,15 @@ import { InputManager } from "../game/input/InputManager";
 import { PlayerController } from "../game/player/PlayerController";
 import { EnemyController } from "../game/combat/EnemyController";
 import { TargetSystem } from "../game/combat/TargetSystem";
+import { CombatController } from "../game/combat/CombatController";
+import { CombatHUD } from "../game/ui/CombatHUD";
 
 export interface ArenaSceneContext {
     player: PlayerController;
     enemy: EnemyController;
     targetSystem: TargetSystem;
+    combatController: CombatController;
+    combatHud: CombatHUD;
     shadowGenerator: ShadowGenerator;
 }
 
@@ -73,10 +77,23 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
 
     // --- Enemy ---
     const enemy = new EnemyController(scene, new Vector3(3, 1, 5));
+    shadowGenerator.addShadowCaster(enemy.mesh);
 
     // --- Target system ---
-    const targetSystem = new TargetSystem();
-    targetSystem.register(enemy.mesh);
+    const targetSystem = new TargetSystem(scene, player.getTransform());
+    targetSystem.register(enemy);
 
-    return { player, enemy, targetSystem, shadowGenerator };
+    // --- Combat controller ---
+    const combatController = new CombatController(
+        player.getTransform(),
+        player.physicsAggregate,
+        input,
+        targetSystem
+    );
+    player.combatController = combatController;
+
+    // --- HUD ---
+    const combatHud = new CombatHUD();
+
+    return { player, enemy, targetSystem, combatController, combatHud, shadowGenerator };
 }
