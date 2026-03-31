@@ -20,12 +20,20 @@ export class GameBootstrap {
     private arenaCtx: ArenaSceneContext;
     private physicsViewer: PhysicsViewer;
     private bodyShown = false;
+    private readonly canvas: HTMLCanvasElement;
 
-    private constructor(engine: Engine, scene: Scene, input: InputManager, arenaCtx: ArenaSceneContext) {
+    private constructor(
+        engine: Engine,
+        scene: Scene,
+        input: InputManager,
+        arenaCtx: ArenaSceneContext,
+        canvas: HTMLCanvasElement
+    ) {
         this.engine = engine;
         this.scene = scene;
         this.input = input;
         this.arenaCtx = arenaCtx;
+        this.canvas = canvas;
         this.physicsViewer = new PhysicsViewer(scene);
     }
 
@@ -42,7 +50,7 @@ export class GameBootstrap {
         const input = new InputManager(scene);
         const arenaCtx = await createArenaScene(scene, input);
 
-        const boot = new GameBootstrap(engine, scene, input, arenaCtx);
+        const boot = new GameBootstrap(engine, scene, input, arenaCtx, canvas);
         boot.bindDebugKeys(canvas);
         boot.startLoop(canvas);
         return boot;
@@ -69,9 +77,22 @@ export class GameBootstrap {
         // already set when player.update() reads isMovementLocked().
         this.arenaCtx.combatController.update(dt);
         this.arenaCtx.player.update(dt);
-        this.arenaCtx.enemy.update(dt);
+
+        // Pass dt = 0 to enemies during hit-pause so they freeze briefly
+        // in place, giving melee swings a punchy feel.
+        const enemyDt = this.arenaCtx.combatController.isHitPaused() ? 0 : dt;
+        for (const enemy of this.arenaCtx.enemies) {
+            enemy.update(enemyDt);
+        }
+
         this.arenaCtx.targetSystem.update(dt);
-        this.arenaCtx.combatHud.update(this.arenaCtx.combatController, this.arenaCtx.targetSystem);
+        this.arenaCtx.encounterManager.update(dt);
+        this.arenaCtx.combatHud.update(
+            this.arenaCtx.combatController,
+            this.arenaCtx.targetSystem,
+            this.arenaCtx.player.health,
+            this.arenaCtx.encounterManager
+        );
 
         // Flush single-frame input state last so all systems see it this tick.
         this.input.clearFrame();
@@ -104,6 +125,11 @@ export class GameBootstrap {
                     });
                 }
             }
+            // R = quick arena reset (full page reload for prototype simplicity)
+            if (e.key === "r" || e.key === "R") {
+                window.location.reload();
+            }
         });
     }
 }
+

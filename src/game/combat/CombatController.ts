@@ -4,7 +4,7 @@ import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
 
 import { InputManager } from "../input/InputManager";
 import { TargetSystem } from "./TargetSystem";
-import { DashStrikeAbility } from "./AbilitySystem";
+import { DashStrikeAbility, SpinSlashAbility } from "./AbilitySystem";
 import { EnemyController } from "./EnemyController";
 import { COMBAT_CONFIG } from "./CombatConfig";
 
@@ -21,8 +21,8 @@ export enum CombatPhase {
 }
 
 /**
- * Drives the player's combat behaviour: 3-hit combo, dodge roll, and the
- * Dash Strike starter ability.
+ * Drives the player's combat behaviour: 3-hit combo, dodge roll, and two
+ * active abilities — Dash Strike (E) and Spin Slash (Q).
  *
  * The controller takes references to the player's TransformNode and physics
  * body so it can apply lunges and facing snaps without importing
@@ -41,8 +41,13 @@ export class CombatController {
     private chainPressed = false;
     private dodgeCooldown = 0;
     private dodgeDir = Vector3.Zero();
+    /** Which ability is currently executing ("dash_strike" | "spin_slash"). */
+    private activeAbilityId: string | null = null;
+    /** Brief freeze timer for hit-pause game feel. */
+    private hitPauseTimer = 0;
 
     readonly dashStrike = new DashStrikeAbility();
+    readonly spinSlash = new SpinSlashAbility();
 
     private readonly transform: TransformNode;
     private readonly physics: PhysicsAggregate;
@@ -85,10 +90,20 @@ export class CombatController {
         );
     }
 
+    /**
+     * True during the brief hit-pause window.
+     * GameBootstrap passes dt = 0 to enemy updates while this is active.
+     */
+    isHitPaused(): boolean {
+        return this.hitPauseTimer > 0;
+    }
+
     // ── Per-frame update ───────────────────────────────────────────────────
 
     update(dt: number): void {
+        // Ability cooldowns and dodge CD always tick, even during hit-pause.
         this.dashStrike.update(dt);
+        this.spinSlash.update(dt);
         if (this.dodgeCooldown > 0) {
             this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
         }
@@ -96,6 +111,13 @@ export class CombatController {
         // Target acquisition / cycling (F or Tab)
         if (this.input.isJustPressed("f") || this.input.isJustPressed("Tab")) {
             this.targeting.acquireOrCycleTarget();
+        }
+
+        // Hit-pause: freeze combat state machine for a couple of frames on a
+        // successful hit — gives the swing a satisfying "crunch" feel.
+        if (this.hitPauseTimer > 0) {
+            this.hitPauseTimer = Math.max(0, this.hitPauseTimer - dt);
+            return;
         }
 
         switch (this.phase) {
@@ -128,7 +150,9 @@ export class CombatController {
         } else if (this.input.isJustPressed(" ") && this.dodgeCooldown <= 0) {
             this.beginDodge();
         } else if (this.input.isJustPressed("e") && this.dashStrike.isReady()) {
-            this.beginAbility();
+            this.beginDashStrike();
+        } else if (this.input.isJustPressed("q") && this.spinSlash.isReady()) {
+            this.beginSpinSlash();
         }
     }
 
@@ -152,6 +176,7 @@ export class CombatController {
             if (hit !== null) {
                 hit.takeHit(COMBAT_CONFIG.ATTACK_DAMAGE[this.comboStep]);
                 this.hitDealt = true;
+                this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
             }
         }
 
@@ -217,17 +242,18 @@ export class CombatController {
         }
     }
 
-    // ── Dash Strike ability ────────────────────────────────────────────────
+    // ── Dash Strike ability (E) ────────────────────────────────────────────
 
-    private beginAbility(): void {
+    private beginDashStrike(): void {
         this.phase = CombatPhase.UsingAbility;
         this.phaseTimer = COMBAT_CONFIG.ABILITY_DASH_STRIKE_DURATION;
         this.hitDealt = false;
+        this.activeAbilityId = "dash_strike";
         this.dashStrike.activate();
         this.faceTarget();
     }
 
-    private tickAbility(dt: number): void {
+    private tickDashStrike(dt: number): void {
         this.moveDirect(this.getForward(), COMBAT_CONFIG.ABILITY_DASH_STRIKE_LUNGE_SPEED, dt);
         this.phaseTimer -= dt;
 
@@ -236,6 +262,7 @@ export class CombatController {
             const hit = this.resolveHit(COMBAT_CONFIG.ABILITY_DASH_STRIKE_RANGE);
             if (hit !== null) {
                 hit.takeHit(COMBAT_CONFIG.ABILITY_DASH_STRIKE_DAMAGE);
+                this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
             }
             this.hitDealt = true;
         }
@@ -243,6 +270,66 @@ export class CombatController {
         if (this.phaseTimer <= 0) {
             this.comboStep = 0;
             this.phase = CombatPhase.Idle;
+            this.activeAbilityId = null;
+        }
+    }
+
+    // ── Spin Slash ability (Q) ─────────────────────────────────────────────
+
+    private beginSpinSlash(): void {
+        this.phase = CombatPhase.UsingAbility;
+        this.phaseTimer = COMBAT_CONFIG.ABILITY_SPIN_SLASH_DURATION;
+        this.hitDealt = false;
+        this.activeAbilityId = "spin_slash";
+        this.spinSlash.activate();
+    }
+
+    private tickSpinSlash(dt: number): void {
+        // Spin the player transform rapidly for visual flair
+        const spinRate = Math.PI * 8;
+        const q = Quaternion.RotationAxis(Vector3.Up(), spinRate * dt);
+        if (this.transform.rotationQuaternion) {
+            this.transform.rotationQuaternion.multiplyInPlace(q);
+        }
+
+        this.phaseTimer -= dt;
+
+        // AoE damage fires at the midpoint of the spin
+        if (!this.hitDealt && this.phaseTimer <= COMBAT_CONFIG.ABILITY_SPIN_SLASH_DURATION * 0.5) {
+            const playerPos = this.transform.getAbsolutePosition();
+            let hitAny = false;
+            for (const enemy of this.targeting.getAllEnemies()) {
+                if (!enemy.isAlive()) continue;
+                const dist = Vector3.Distance(playerPos, enemy.mesh.getAbsolutePosition());
+                if (dist <= COMBAT_CONFIG.ABILITY_SPIN_SLASH_RADIUS) {
+                    enemy.takeHit(COMBAT_CONFIG.ABILITY_SPIN_SLASH_DAMAGE);
+                    hitAny = true;
+                }
+            }
+            if (hitAny) {
+                this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
+            }
+            this.hitDealt = true;
+        }
+
+        if (this.phaseTimer <= 0) {
+            this.comboStep = 0;
+            this.phase = CombatPhase.Idle;
+            this.activeAbilityId = null;
+        }
+    }
+
+    // ── Ability dispatch ───────────────────────────────────────────────────
+
+    private tickAbility(dt: number): void {
+        if (this.activeAbilityId === "dash_strike") {
+            this.tickDashStrike(dt);
+        } else if (this.activeAbilityId === "spin_slash") {
+            this.tickSpinSlash(dt);
+        } else {
+            // Safety fallback
+            this.phase = CombatPhase.Idle;
+            this.activeAbilityId = null;
         }
     }
 
