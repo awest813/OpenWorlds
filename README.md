@@ -1,22 +1,68 @@
-# Third person template
-
-[![NodeJS with Webpack](https://github.com/BarthPaleologue/babylonjs-template/actions/workflows/webpack.yml/badge.svg)](https://github.com/BarthPaleologue/babylonjs-template/actions/workflows/webpack.yml)
-[![Build & Deploy site to Pages](https://github.com/BarthPaleologue/ThirdPersonTemplate/actions/workflows/deploy.yml/badge.svg)](https://github.com/BarthPaleologue/ThirdPersonTemplate/actions/workflows/deploy.yml)
+# OpenWorlds
 
 ![cover image](cover.png)
 
-A simple template to quick start a BabylonJS project with a working third person character controller, webpack config, prettier and eslint.
+OpenWorlds is a Babylon.js + TypeScript third-person action RPG prototype.  
+It includes real-time combat, enemy archetypes, NPC interactions, dialogue, and a quest loop in a single hub scene.
 
-This project has been created using **webpack-cli**, you can now run
+## Features
 
+- Third-person player controller with camera-relative movement
+- Action combat with:
+  - 3-hit melee combo
+  - Dodge roll
+  - Dash Strike ability
+  - Spin Slash ability
+  - Target cycling
+- Enemy AI archetypes (melee chaser, heavy bruiser, ranged caster)
+- NPC interaction and dialogue system
+- Quest state + objective tracking HUD
+
+## Controls
+
+- `W A S D` — Move
+- `Mouse` — Camera look
+- `J` or `Left Click` — Attack
+- `Space` — Dodge
+- `E` — Dash Strike
+- `Q` — Spin Slash
+- `F` or `Tab` — Cycle target
+- `T` — Interact / talk
+- `Enter` / `Space` / `T` — Advance dialogue
+- `P` — Screenshot
+- `V` — Toggle physics debug viewer
+- `R` — Quick reset (reload)
+
+## Getting Started
+
+```bash
+npm install
 ```
+
+### Development
+
+```bash
+npm run serve
+```
+
+### Build
+
+```bash
+npm run build:dev
 npm run build
 ```
 
-or
+### Lint & Format
 
-```
-yarn build
+```bash
+npm run lint:check
+npm run lint:fix
+npm run format
 ```
 
-to bundle your application
+## Tech Stack
+
+- Babylon.js + Havok physics
+- TypeScript
+- Webpack
+- ESLint + Prettier
