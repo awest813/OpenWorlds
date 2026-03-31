@@ -1,0 +1,21 @@
+/*!****************************************************************************************************************!*\
+  !*** css ./node_modules/css-loader/dist/cjs.js!./node_modules/sass-loader/dist/cjs.js!./src/styles/index.scss ***!
+  \****************************************************************************************************************/
+*,
+*::before,
+*::after {
+  box-sizing: content-box;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+  background: black;
+}
+body #renderer {
+  z-index: 1;
+  float: left;
+}
+
+/*# sourceMappingURL=index.css.map*/
