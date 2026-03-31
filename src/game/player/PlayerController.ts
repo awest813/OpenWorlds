@@ -14,6 +14,7 @@ import "@babylonjs/loaders/glTF/2.0/glTFLoader";
 import character from "../../assets/character.glb";
 import { InputManager } from "../input/InputManager";
 import { ThirdPersonCamera } from "../camera/ThirdPersonCamera";
+import { CombatController } from "../combat/CombatController";
 import { moveTowards } from "../../utils/math";
 
 export interface PlayerKeyBindings {
@@ -47,6 +48,9 @@ export class PlayerController {
     private readonly input: InputManager;
     readonly camera: ThirdPersonCamera;
     readonly keys: PlayerKeyBindings;
+
+    /** Wired up in ArenaScene after both player and combat systems are created. */
+    combatController: CombatController | null = null;
 
     static async CreateAsync(scene: Scene, input: InputManager, keys?: PlayerKeyBindings): Promise<PlayerController> {
         const result = await SceneLoader.ImportMeshAsync("", "", character, scene);
@@ -94,6 +98,15 @@ export class PlayerController {
 
     update(deltaSeconds: number): void {
         this.targetAnim = this.idleAnim;
+
+        // While combat phases like attack lockout or dodge are active,
+        // movement input is suppressed so the combat controller has full
+        // control of the transform.
+        const movementLocked = this.combatController?.isMovementLocked() ?? false;
+        if (movementLocked) {
+            this.blendAnimations(deltaSeconds);
+            return;
+        }
 
         const angle180 = Math.PI;
         const angle45 = angle180 / 4;

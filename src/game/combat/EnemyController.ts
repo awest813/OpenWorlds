@@ -4,25 +4,70 @@ import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 import { PBRMetallicRoughnessMaterial } from "@babylonjs/core/Materials/PBR/pbrMetallicRoughnessMaterial";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
+import { HealthComponent } from "./HealthComponent";
+
+const BASE_COLOR = new Color3(0.8, 0.15, 0.15);
+const HIT_COLOR = new Color3(1.0, 0.9, 0.9);
+const DEAD_COLOR = new Color3(0.25, 0.25, 0.25);
+const HIT_FLASH_DURATION = 0.15;
 
 /**
- * Placeholder enemy controller.
- * Provides a visible, targetable mesh in the scene for testing lock-on and hit detection.
+ * A simple combat dummy enemy.
+ * Has health, a hit-flash reaction, and a death-slump state.
+ * Duplicate freely in ArenaScene — each instance is independent.
  */
 export class EnemyController {
     readonly mesh: AbstractMesh;
+    readonly health: HealthComponent;
+    readonly displayName: string;
 
-    constructor(scene: Scene, position: Vector3) {
-        this.mesh = MeshBuilder.CreateCapsule("Enemy", { height: 2, radius: 0.4 }, scene);
-        this.mesh.position = position;
+    private hitFlashTimer = 0;
+    private readonly mat: PBRMetallicRoughnessMaterial;
+    private readonly spawnY: number;
 
-        const mat = new PBRMetallicRoughnessMaterial("enemyMat", scene);
-        mat.baseColor = new Color3(0.8, 0.15, 0.15);
-        this.mesh.material = mat;
+    constructor(scene: Scene, position: Vector3, displayName = "Enemy") {
+        this.displayName = displayName;
+        this.spawnY = position.y;
+
+        this.mesh = MeshBuilder.CreateCapsule(displayName, { height: 2, radius: 0.4 }, scene);
+        this.mesh.position = position.clone();
+
+        this.mat = new PBRMetallicRoughnessMaterial("enemyMat_" + displayName, scene);
+        this.mat.baseColor = BASE_COLOR.clone();
+        this.mesh.material = this.mat;
+
+        this.health = new HealthComponent(100);
+        this.health.onDamage = () => {
+            this.hitFlashTimer = HIT_FLASH_DURATION;
+        };
+        this.health.onDeath = () => {
+            this.onDied();
+        };
     }
 
-    update(_deltaSeconds: number): void {
-        // TODO: AI state machine, patrol, aggro, attack patterns
+    takeHit(damage: number): void {
+        this.health.takeDamage(damage);
+    }
+
+    isAlive(): boolean {
+        return !this.health.isDead;
+    }
+
+    update(deltaSeconds: number): void {
+        if (this.health.isDead) return;
+
+        if (this.hitFlashTimer > 0) {
+            this.hitFlashTimer = Math.max(0, this.hitFlashTimer - deltaSeconds);
+            const t = this.hitFlashTimer / HIT_FLASH_DURATION;
+            this.mat.baseColor = Color3.Lerp(BASE_COLOR, HIT_COLOR, t);
+        }
+    }
+
+    private onDied(): void {
+        // Squash the capsule into a "fallen" silhouette
+        this.mesh.scaling.y = 0.25;
+        this.mesh.position.y = this.spawnY - 0.35;
+        this.mat.baseColor = DEAD_COLOR.clone();
     }
 
     dispose(): void {
