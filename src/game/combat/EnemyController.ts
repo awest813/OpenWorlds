@@ -342,7 +342,7 @@ export class EnemyController {
         if (this.archetype.isRanged) {
             this.fireProjectile();
         } else {
-            // Melee: damage if still in range (generous 20 % buffer for feel)
+            // Melee: damage if still in range (generous 20% buffer for feel)
             const dist = Vector3.Distance(
                 this.mesh.getAbsolutePosition(),
                 this.playerTransform.getAbsolutePosition()

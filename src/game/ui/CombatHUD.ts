@@ -366,7 +366,7 @@ export class CombatHUD {
 
         // Show defeat banner once
         if (health.isDead && this.bannerPanel.style.display === "none") {
-            this.showBanner("⚔  DEFEATED  ⚔", "#ff6060", false);
+            this.showBanner("⚔  DEFEATED  ⚔", "#ff6060");
         }
     }
 
@@ -381,11 +381,11 @@ export class CombatHUD {
 
         // Show clear banner once
         if (encounter.getState() === EncounterState.Clear && this.bannerPanel.style.display === "none") {
-            this.showBanner(`✓  ENCOUNTER CLEAR\n+${encounter.getReward().xp} XP\n\nPress R to replay`, "#7eff7e", true);
+            this.showBanner(`✓  ENCOUNTER CLEAR\n+${encounter.getReward().xp} XP\n\nPress R to replay`, "#7eff7e");
         }
     }
 
-    private showBanner(text: string, color: string, _isPersistent: boolean): void {
+    private showBanner(text: string, color: string): void {
         this.bannerPanel.style.display = "";
         this.bannerPanel.style.color = color;
         this.bannerPanel.innerHTML = text.replace(/\n/g, "<br>");
