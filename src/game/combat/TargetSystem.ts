@@ -55,6 +55,11 @@ export class TargetSystem {
         return this.currentTarget;
     }
 
+    /** Returns a copy of the full registered enemy list (living and dead). */
+    getAllEnemies(): EnemyController[] {
+        return this.enemies.slice();
+    }
+
     /**
      * If no target is locked, selects the nearest living enemy inside the
      * forward cone.  If a target is already locked, cycles to the next one.

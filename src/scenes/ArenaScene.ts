@@ -12,21 +12,28 @@ import { SkyMaterial } from "@babylonjs/materials";
 
 import { InputManager } from "../game/input/InputManager";
 import { PlayerController } from "../game/player/PlayerController";
-import { EnemyController } from "../game/combat/EnemyController";
+import {
+    EnemyController,
+    ARCHETYPE_MELEE_CHASER,
+    ARCHETYPE_HEAVY_BRUISER,
+    ARCHETYPE_RANGED_CASTER,
+} from "../game/combat/EnemyController";
 import { TargetSystem } from "../game/combat/TargetSystem";
 import { CombatController } from "../game/combat/CombatController";
 import { CombatHUD } from "../game/ui/CombatHUD";
+import { EncounterManager } from "../game/encounter/EncounterManager";
 
 export interface ArenaSceneContext {
     player: PlayerController;
-    enemy: EnemyController;
+    enemies: EnemyController[];
     targetSystem: TargetSystem;
     combatController: CombatController;
     combatHud: CombatHUD;
     shadowGenerator: ShadowGenerator;
+    encounterManager: EncounterManager;
 }
 
-/** Sets up the test arena: ground, lighting, sky, player, and one enemy. */
+/** Sets up the test arena: ground, lighting, sky, player, and three enemy archetypes. */
 export async function createArenaScene(scene: Scene, input: InputManager): Promise<ArenaSceneContext> {
     // --- Lighting ---
     const sun = new DirectionalLight("light", new Vector3(-5, -10, 5).normalize(), scene);
@@ -75,13 +82,20 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
     player.getTransform().position.y = 3;
     shadowGenerator.addShadowCaster(player.model);
 
-    // --- Enemy ---
-    const enemy = new EnemyController(scene, new Vector3(3, 1, 5));
-    shadowGenerator.addShadowCaster(enemy.mesh);
+    // --- Enemies (three archetypes) ---
+    // Enemy positions are spread around the arena so each archetype's
+    // behaviour is clear: Chaser rushes in, Bruiser lumbers forward,
+    // Caster hangs back and fires.
+    const enemies: EnemyController[] = [
+        new EnemyController(scene, new Vector3(-4, 1, 8), ARCHETYPE_MELEE_CHASER, player.getTransform(), player.health),
+        new EnemyController(scene, new Vector3(4, 1, 10), ARCHETYPE_HEAVY_BRUISER, player.getTransform(), player.health),
+        new EnemyController(scene, new Vector3(0, 1, 15), ARCHETYPE_RANGED_CASTER, player.getTransform(), player.health),
+    ];
+    enemies.forEach((e) => shadowGenerator.addShadowCaster(e.mesh));
 
     // --- Target system ---
     const targetSystem = new TargetSystem(scene, player.getTransform());
-    targetSystem.register(enemy);
+    enemies.forEach((e) => targetSystem.register(e));
 
     // --- Combat controller ---
     const combatController = new CombatController(
@@ -92,8 +106,13 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
     );
     player.combatController = combatController;
 
+    // --- Encounter manager ---
+    // 150 XP reward: placeholder for future progression hooks.
+    const encounterManager = new EncounterManager(enemies, { xp: 150 });
+
     // --- HUD ---
     const combatHud = new CombatHUD();
 
-    return { player, enemy, targetSystem, combatController, combatHud, shadowGenerator };
+    return { player, enemies, targetSystem, combatController, combatHud, shadowGenerator, encounterManager };
 }
+

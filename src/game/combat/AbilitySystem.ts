@@ -43,3 +43,33 @@ export class DashStrikeAbility implements IAbility {
         }
     }
 }
+
+/**
+ * Second ability: a spinning slash that hits ALL enemies within a radius.
+ * Bound to Q. Great for grouped enemies and crowd control.
+ */
+export class SpinSlashAbility implements IAbility {
+    readonly id = "spin_slash";
+    readonly displayName = "Spin Slash";
+    readonly cooldown = COMBAT_CONFIG.ABILITY_SPIN_SLASH_COOLDOWN;
+    cooldownRemaining = 0;
+
+    isReady(): boolean {
+        return this.cooldownRemaining <= 0;
+    }
+
+    getCooldownFraction(): number {
+        if (this.cooldown <= 0) return 0;
+        return this.cooldownRemaining / this.cooldown;
+    }
+
+    activate(): void {
+        this.cooldownRemaining = this.cooldown;
+    }
+
+    update(dt: number): void {
+        if (this.cooldownRemaining > 0) {
+            this.cooldownRemaining = Math.max(0, this.cooldownRemaining - dt);
+        }
+    }
+}

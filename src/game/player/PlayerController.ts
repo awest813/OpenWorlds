@@ -15,6 +15,8 @@ import character from "../../assets/character.glb";
 import { InputManager } from "../input/InputManager";
 import { ThirdPersonCamera } from "../camera/ThirdPersonCamera";
 import { CombatController } from "../combat/CombatController";
+import { HealthComponent } from "../combat/HealthComponent";
+import { COMBAT_CONFIG } from "../combat/CombatConfig";
 import { moveTowards } from "../../utils/math";
 
 export interface PlayerKeyBindings {
@@ -51,6 +53,9 @@ export class PlayerController {
 
     /** Wired up in ArenaScene after both player and combat systems are created. */
     combatController: CombatController | null = null;
+
+    /** Player health — enemies read this reference to deal damage. */
+    readonly health = new HealthComponent(COMBAT_CONFIG.PLAYER_MAX_HP);
 
     static async CreateAsync(scene: Scene, input: InputManager, keys?: PlayerKeyBindings): Promise<PlayerController> {
         const result = await SceneLoader.ImportMeshAsync("", "", character, scene);
@@ -98,6 +103,12 @@ export class PlayerController {
 
     update(deltaSeconds: number): void {
         this.targetAnim = this.idleAnim;
+
+        // Freeze all movement when the player is defeated.
+        if (this.health.isDead) {
+            this.blendAnimations(deltaSeconds);
+            return;
+        }
 
         // While combat phases like attack lockout or dodge are active,
         // movement input is suppressed so the combat controller has full

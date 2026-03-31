@@ -28,7 +28,7 @@ export const COMBAT_CONFIG = {
     /** Cooldown before the player can dodge again. */
     DODGE_COOLDOWN: 0.9,
 
-    // ── Dash Strike ability ────────────────────────────────────────────────
+    // ── Dash Strike ability (E) ────────────────────────────────────────────
     ABILITY_DASH_STRIKE_RANGE: 6.0,
     ABILITY_DASH_STRIKE_DAMAGE: 32,
     ABILITY_DASH_STRIKE_COOLDOWN: 5.0,
@@ -36,9 +36,27 @@ export const COMBAT_CONFIG = {
     /** Lunge speed (m/s) during the dash-strike. */
     ABILITY_DASH_STRIKE_LUNGE_SPEED: 14.0,
 
+    // ── Spin Slash ability (Q) ─────────────────────────────────────────────
+    /** AoE radius around the player that Spin Slash hits. */
+    ABILITY_SPIN_SLASH_RADIUS: 3.5,
+    ABILITY_SPIN_SLASH_DAMAGE: 25,
+    ABILITY_SPIN_SLASH_COOLDOWN: 8.0,
+    ABILITY_SPIN_SLASH_DURATION: 0.4,
+
+    // ── Hit pause ─────────────────────────────────────────────────────────
+    /** Seconds to freeze combat logic on a successful hit (game-feel polish). */
+    HIT_PAUSE_DURATION: 0.05,
+
+    // ── Player ─────────────────────────────────────────────────────────────
+    PLAYER_MAX_HP: 100,
+
     // ── Soft-lock targeting ────────────────────────────────────────────────
     /** Maximum targeting range in metres. */
     TARGET_RANGE: 15.0,
     /** Half-angle (degrees) of the forward targeting cone. 60° → 120° total FOV. */
     TARGET_FOV_HALF_ANGLE_DEG: 60,
+
+    // ── Enemy projectiles ──────────────────────────────────────────────────
+    ENEMY_PROJECTILE_HIT_RADIUS: 0.6,
+    ENEMY_PROJECTILE_LIFETIME: 4.0,
 } as const;
