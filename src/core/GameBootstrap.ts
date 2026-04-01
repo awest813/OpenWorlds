@@ -118,13 +118,29 @@ export class GameBootstrap {
         }
 
         // HUD updates always run so panels stay visible during dialogue
-        ctx.combatHud.update(
+            ctx.combatHud.update(
             ctx.combatController,
             ctx.targetSystem,
             ctx.player.health,
             ctx.encounterManager,
-            ctx.playerProgression
+            ctx.playerProgression,
+            ctx.playerBuild
         );
+
+            if (this.input.isJustPressed("c") || this.input.isJustPressed("C")) {
+                ctx.playerBuild.cycleClass();
+                ctx.questHud.showNotification(`Class: ${ctx.playerBuild.getClassDisplayName()}`, 2.0);
+            }
+            for (let d = 1; d <= 9; d++) {
+                const key = String(d);
+                if (this.input.isJustPressed(key)) {
+                    const list = ctx.playerBuild.listUnlockableSkillNodes();
+                    const node = list[d - 1];
+                    if (node && ctx.playerBuild.skillTree.tryUnlock(node.id)) {
+                        ctx.questHud.showNotification(`Skill: ${node.displayName}`, 2.2);
+                    }
+                }
+            }
         const gatherPrompt =
             ctx.interactionSystem.getNearbyNpc() === null
                 ? ctx.gatherableManager.getPromptInRange(playerPos)

@@ -23,6 +23,8 @@ import { CombatController } from "../game/combat/CombatController";
 import { CombatHUD } from "../game/ui/CombatHUD";
 import { EncounterManager } from "../game/encounter/EncounterManager";
 import { PlayerProgression } from "../game/progression/PlayerProgression";
+import { PlayerBuild } from "../game/progression/PlayerBuild";
+import { LOOT_TABLE_ARENA_SPARRING } from "../game/loot/LootTables";
 
 export interface ArenaSceneContext {
     player: PlayerController;
@@ -31,6 +33,7 @@ export interface ArenaSceneContext {
     combatController: CombatController;
     combatHud: CombatHUD;
     playerProgression: PlayerProgression;
+    playerBuild: PlayerBuild;
     shadowGenerator: ShadowGenerator;
     encounterManager: EncounterManager;
 }
@@ -99,22 +102,36 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
     const targetSystem = new TargetSystem(scene, player.getTransform());
     enemies.forEach((e) => targetSystem.register(e));
 
+    const playerProgression = new PlayerProgression(player.health);
+    const playerBuild = new PlayerBuild(player.health, playerProgression);
+
     // --- Combat controller ---
     const combatController = new CombatController(
         player.getTransform(),
         player.physicsAggregate,
         input,
-        targetSystem
+        targetSystem,
+        playerBuild
     );
     player.combatController = combatController;
 
-    // --- Encounter manager ---
-    // 150 XP reward: placeholder for future progression hooks.
-    const encounterManager = new EncounterManager(enemies, { xp: 150 });
+    // --- Encounter manager (XP + loot table) ---
+    const encounterManager = new EncounterManager(enemies, {
+        xp: 150,
+        lootTableId: LOOT_TABLE_ARENA_SPARRING.id,
+        lootPickCount: 2,
+    });
 
-    // --- HUD ---
+    encounterManager.onClear = (reward, loot) => {
+        playerProgression.gainXp(reward.xp, () => {
+            playerBuild.onLevelUp();
+        });
+        if (loot && loot.drops.length > 0) {
+            playerBuild.applyLootDrops(loot.drops);
+        }
+    };
+
     const combatHud = new CombatHUD();
-    const playerProgression = new PlayerProgression(player.health);
 
     return {
         player,
@@ -123,6 +140,7 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
         combatController,
         combatHud,
         playerProgression,
+        playerBuild,
         shadowGenerator,
         encounterManager,
     };

@@ -8,6 +8,14 @@ import { DashStrikeAbility, SpinSlashAbility } from "./AbilitySystem";
 import { EnemyController } from "./EnemyController";
 import { COMBAT_CONFIG } from "./CombatConfig";
 
+/** Optional live modifiers from class + skill tree (defaults to 1.0 / config cooldown). */
+export interface PlayerCombatStats {
+    getComboDamageMultiplier(): number;
+    getDashStrikeDamageMultiplier(): number;
+    getSpinSlashDamageMultiplier(): number;
+    getDodgeCooldownSeconds(): number;
+}
+
 export enum CombatPhase {
     Idle = "Idle",
     /** Brief window in which the hit-check fires and damage lands. */
@@ -53,17 +61,20 @@ export class CombatController {
     private readonly physics: PhysicsAggregate;
     private readonly input: InputManager;
     private readonly targeting: TargetSystem;
+    private readonly combatStats: PlayerCombatStats | null;
 
     constructor(
         playerTransform: TransformNode,
         playerPhysics: PhysicsAggregate,
         input: InputManager,
-        targeting: TargetSystem
+        targeting: TargetSystem,
+        combatStats?: PlayerCombatStats | null
     ) {
         this.transform = playerTransform;
         this.physics = playerPhysics;
         this.input = input;
         this.targeting = targeting;
+        this.combatStats = combatStats ?? null;
     }
 
     // ── Public state queries ───────────────────────────────────────────────
@@ -174,7 +185,9 @@ export class CombatController {
         if (!this.hitDealt) {
             const hit = this.resolveHit(COMBAT_CONFIG.ATTACK_RANGE);
             if (hit !== null) {
-                hit.takeHit(COMBAT_CONFIG.ATTACK_DAMAGE[this.comboStep]);
+                const base = COMBAT_CONFIG.ATTACK_DAMAGE[this.comboStep];
+                const mult = this.combatStats?.getComboDamageMultiplier() ?? 1;
+                hit.takeHit(Math.max(1, Math.round(base * mult)));
                 this.hitDealt = true;
                 this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
             }
@@ -229,7 +242,7 @@ export class CombatController {
     private beginDodge(): void {
         this.phase = CombatPhase.Dodging;
         this.phaseTimer = COMBAT_CONFIG.DODGE_DURATION;
-        this.dodgeCooldown = COMBAT_CONFIG.DODGE_COOLDOWN;
+        this.dodgeCooldown = this.combatStats?.getDodgeCooldownSeconds() ?? COMBAT_CONFIG.DODGE_COOLDOWN;
         // Dash in the player's current facing direction
         this.dodgeDir = this.getForward();
     }
@@ -261,7 +274,8 @@ export class CombatController {
         if (!this.hitDealt && this.phaseTimer <= COMBAT_CONFIG.ABILITY_DASH_STRIKE_DURATION * 0.5) {
             const hit = this.resolveHit(COMBAT_CONFIG.ABILITY_DASH_STRIKE_RANGE);
             if (hit !== null) {
-                hit.takeHit(COMBAT_CONFIG.ABILITY_DASH_STRIKE_DAMAGE);
+                const mult = this.combatStats?.getDashStrikeDamageMultiplier() ?? 1;
+                hit.takeHit(Math.max(1, Math.round(COMBAT_CONFIG.ABILITY_DASH_STRIKE_DAMAGE * mult)));
                 this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
             }
             this.hitDealt = true;
@@ -302,7 +316,8 @@ export class CombatController {
                 if (!enemy.isAlive()) continue;
                 const dist = Vector3.Distance(playerPos, enemy.mesh.getAbsolutePosition());
                 if (dist <= COMBAT_CONFIG.ABILITY_SPIN_SLASH_RADIUS) {
-                    enemy.takeHit(COMBAT_CONFIG.ABILITY_SPIN_SLASH_DAMAGE);
+                    const mult = this.combatStats?.getSpinSlashDamageMultiplier() ?? 1;
+                    enemy.takeHit(Math.max(1, Math.round(COMBAT_CONFIG.ABILITY_SPIN_SLASH_DAMAGE * mult)));
                     hitAny = true;
                 }
             }
