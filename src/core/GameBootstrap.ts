@@ -8,6 +8,7 @@ import HavokPhysics from "@babylonjs/havok";
 
 import { InputManager } from "../game/input/InputManager";
 import { createHubScene, HubSceneContext } from "../scenes/HubScene";
+import { ControlsOverlay } from "../game/ui/ControlsOverlay";
 
 /**
  * GameBootstrap owns the engine, scene, and top-level game loop.
@@ -21,19 +22,22 @@ export class GameBootstrap {
     private physicsViewer: PhysicsViewer;
     private bodyShown = false;
     private readonly canvas: HTMLCanvasElement;
+    private readonly controlsOverlay: ControlsOverlay;
 
     private constructor(
         engine: Engine,
         scene: Scene,
         input: InputManager,
         hubCtx: HubSceneContext,
-        canvas: HTMLCanvasElement
+        canvas: HTMLCanvasElement,
+        controlsOverlay: ControlsOverlay
     ) {
         this.engine = engine;
         this.scene = scene;
         this.input = input;
         this.hubCtx = hubCtx;
         this.canvas = canvas;
+        this.controlsOverlay = controlsOverlay;
         this.physicsViewer = new PhysicsViewer(scene);
     }
 
@@ -49,8 +53,9 @@ export class GameBootstrap {
 
         const input = new InputManager(scene);
         const hubCtx = await createHubScene(scene, input);
+        const controlsOverlay = new ControlsOverlay();
 
-        const boot = new GameBootstrap(engine, scene, input, hubCtx, canvas);
+        const boot = new GameBootstrap(engine, scene, input, hubCtx, canvas, controlsOverlay);
         boot.bindDebugKeys(canvas);
         boot.startLoop(canvas);
         return boot;
@@ -151,6 +156,8 @@ export class GameBootstrap {
             ctx.interactionSystem.getNearbyNpc()?.name ?? null,
             gatherPrompt
         );
+
+        this.controlsOverlay.update(this.input);
 
         // Flush single-frame input state last so all systems see it this tick.
         this.input.clearFrame();
