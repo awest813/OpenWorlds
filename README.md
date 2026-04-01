@@ -7,7 +7,7 @@ It includes real-time combat, enemy archetypes, NPC interactions, dialogue, and 
 
 ## Features
 
-- Third-person player controller with camera-relative movement
+- Third-person player controller with camera-relative movement and optional pointer lock (click the game canvas; Esc to release)
 - Action combat with:
   - 3-hit melee combo
   - Dodge roll
@@ -31,6 +31,8 @@ It includes real-time combat, enemy archetypes, NPC interactions, dialogue, and 
 - `Enter` / `Space` / `T` — Advance dialogue
 - `P` — Screenshot
 - `V` — Toggle physics debug viewer
+- `H` — Toggle controls help overlay
+- `Esc` — Release mouse after pointer lock (click canvas again to recapture)
 - `R` — Quick reset (reload)
 
 ## Getting Started

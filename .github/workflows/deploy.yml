@@ -48,6 +48,8 @@ jobs:
         run: npm install -g pnpm
       - name: Install dependencies
         run: pnpm install
+      - name: Typecheck
+        run: pnpm run typecheck
       - name: Build with Webpack
         run: pnpm run build
       - name: Upload artifact
