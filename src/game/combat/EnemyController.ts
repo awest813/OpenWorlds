@@ -78,7 +78,7 @@ export const ARCHETYPE_MELEE_CHASER: EnemyArchetypeConfig = {
     preferredRange: 0,
     projectileSpeed: 0,
     projectileDamage: 0,
-    baseColor: new Color3(0.85, 0.2, 0.1),
+    baseColor: new Color3(0.62, 0.28, 0.22),
     meshHeight: 1.8,
     meshRadius: 0.35,
 };
@@ -97,7 +97,7 @@ export const ARCHETYPE_HEAVY_BRUISER: EnemyArchetypeConfig = {
     preferredRange: 0,
     projectileSpeed: 0,
     projectileDamage: 0,
-    baseColor: new Color3(0.55, 0.1, 0.7),
+    baseColor: new Color3(0.42, 0.32, 0.52),
     meshHeight: 2.4,
     meshRadius: 0.52,
 };
@@ -116,7 +116,7 @@ export const ARCHETYPE_RANGED_CASTER: EnemyArchetypeConfig = {
     preferredRange: 9.0,
     projectileSpeed: 12.0,
     projectileDamage: 15,
-    baseColor: new Color3(0.1, 0.35, 0.9),
+    baseColor: new Color3(0.22, 0.38, 0.62),
     meshHeight: 1.8,
     meshRadius: 0.35,
 };
@@ -189,6 +189,11 @@ export class EnemyController {
 
         this.mat = new PBRMetallicRoughnessMaterial(`enemyMat_${archetype.displayName}_${id}`, scene);
         this.mat.baseColor = archetype.baseColor.clone();
+        this.mat.metallic = 0.06;
+        this.mat.roughness = 0.78;
+        if (scene.environmentTexture) {
+            this.mat.environmentTexture = scene.environmentTexture;
+        }
         this.mesh.material = this.mat;
 
         this.health = new HealthComponent(archetype.maxHp);

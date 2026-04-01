@@ -45,7 +45,11 @@ export class NpcController {
 
         const bodyMat = new PBRMetallicRoughnessMaterial(`npcMat_${def.name}`, scene);
         bodyMat.baseColor = def.bodyColor;
-        bodyMat.roughness = 0.85;
+        bodyMat.metallic = 0.04;
+        bodyMat.roughness = 0.82;
+        if (scene.environmentTexture) {
+            bodyMat.environmentTexture = scene.environmentTexture;
+        }
         body.material = bodyMat;
 
         // Interaction orb (glowing sphere that pulses above the NPC's head)
