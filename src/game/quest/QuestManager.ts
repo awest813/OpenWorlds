@@ -39,6 +39,15 @@ export class QuestManager {
 
     /** Increment the kill counter for a quest. Moves to Completable when objective is met. */
     recordKill(id: string): void {
+        this.bumpProgress(id);
+    }
+
+    /** Increment gather / collection progress for an active quest. */
+    recordGather(id: string): void {
+        this.bumpProgress(id);
+    }
+
+    private bumpProgress(id: string): void {
         const q = this.quests.get(id);
         if (!q || q.state !== QuestState.Active) return;
         q.progress++;

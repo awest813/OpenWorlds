@@ -42,3 +42,20 @@ export const QUEST_CLEAR_SCOUTS: QuestDef = {
         goldText: "50 Gold",
     },
 };
+
+/** Second hub quest: gather herbs for the outpost (walk-up nodes, Eurojank tone). */
+export const QUEST_BITTERLEAF_FOR_MAREN: QuestDef = {
+    id: "quest_bitterleaf_maren",
+    title: "Bitterleaf for the Kettle",
+    giver: "Elder Maren",
+    description: "The elder needs bitterleaf for a stew that might help the wounded — or at least improve morale.",
+    objective: {
+        description: "Gather bitterleaf",
+        required: 3,
+    },
+    reward: {
+        xp: 90,
+        healAmount: 25,
+        goldText: "20 Gold (allegedly)",
+    },
+};

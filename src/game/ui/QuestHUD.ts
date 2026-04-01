@@ -113,9 +113,14 @@ export class QuestHUD {
     }
 
     /** Call every frame to keep all panels in sync. */
-    update(dt: number, questManager: QuestManager, nearbyNpcName: string | null): void {
+    update(
+        dt: number,
+        questManager: QuestManager,
+        nearbyNpcName: string | null,
+        gatherPrompt: string | null = null
+    ): void {
         this.updateQuestPanel(questManager);
-        this.updateInteractPrompt(nearbyNpcName);
+        this.updateInteractPrompt(nearbyNpcName, gatherPrompt);
         if (this.notifTimer > 0) {
             this.notifTimer -= dt;
             if (this.notifTimer <= 0) {
@@ -156,9 +161,12 @@ export class QuestHUD {
         }
     }
 
-    private updateInteractPrompt(npcName: string | null): void {
+    private updateInteractPrompt(npcName: string | null, gatherPrompt: string | null): void {
         if (npcName) {
             this.interactPrompt.textContent = `[ T ]  Talk to ${npcName}`;
+            this.interactPrompt.style.display = "";
+        } else if (gatherPrompt) {
+            this.interactPrompt.textContent = `[ T ]  ${gatherPrompt}`;
             this.interactPrompt.style.display = "";
         } else {
             this.interactPrompt.style.display = "none";

@@ -27,11 +27,13 @@ import { CombatHUD } from "../game/ui/CombatHUD";
 import { EncounterManager } from "../game/encounter/EncounterManager";
 import { WorldState } from "../game/world/WorldState";
 import { QuestManager } from "../game/quest/QuestManager";
-import { QUEST_CLEAR_SCOUTS, QuestState } from "../game/quest/QuestData";
+import { QUEST_BITTERLEAF_FOR_MAREN, QUEST_CLEAR_SCOUTS, QuestState } from "../game/quest/QuestData";
 import { NpcController } from "../game/npc/NpcController";
 import { InteractionSystem } from "../game/interaction/InteractionSystem";
 import { DialogueSystem, DialogueLine } from "../game/dialogue/DialogueSystem";
 import { QuestHUD } from "../game/ui/QuestHUD";
+import { GatherableManager } from "../game/world/GatherableManager";
+import { PlayerProgression } from "../game/progression/PlayerProgression";
 
 export interface HubSceneContext {
     player: PlayerController;
@@ -45,6 +47,8 @@ export interface HubSceneContext {
     questManager: QuestManager;
     worldState: WorldState;
     interactionSystem: InteractionSystem;
+    gatherableManager: GatherableManager;
+    playerProgression: PlayerProgression;
     shadowGenerator: ShadowGenerator;
     encounterManager: EncounterManager;
     /** Call when the player interacts with an NPC; handles dialogue routing. */
@@ -64,13 +68,15 @@ export interface HubSceneContext {
  *   1. Player spawns south of hub, walks to Elder Maren.
  *   2. Dialogue → accept "Drive Out the Scouts".
  *   3. Walk north through the gate, defeat 3 scouts.
- *   4. Return to Elder Maren, turn in quest, receive reward.
+ *   4. Return to Elder Maren, turn in quest, receive reward (XP + optional level-up).
+ *   5. Elder offers "Bitterleaf for the Kettle" — gather three plants by the south wall, return to turn in.
  */
 export async function createHubScene(scene: Scene, input: InputManager): Promise<HubSceneContext> {
     // ── World state + quest ────────────────────────────────────────────────
     const worldState = new WorldState();
     const questManager = new QuestManager();
     questManager.register(QUEST_CLEAR_SCOUTS);
+    questManager.register(QUEST_BITTERLEAF_FOR_MAREN);
 
     // ── Lighting ───────────────────────────────────────────────────────────
     const sun = new DirectionalLight("sun", new Vector3(-5, -10, 5).normalize(), scene);
@@ -135,6 +141,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     player.getTransform().position.set(0, 3, -14);
     shadowGenerator.addShadowCaster(player.model);
 
+    const playerProgression = new PlayerProgression(player.health);
+
     // ── Enemies (combat zone) ──────────────────────────────────────────────
     const enemies: EnemyController[] = [
         new EnemyController(scene, new Vector3(-6, 1, 28), ARCHETYPE_MELEE_CHASER, player.getTransform(), player.health),
@@ -166,6 +174,10 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     // ── Encounter manager ──────────────────────────────────────────────────
     const encounterManager = new EncounterManager(enemies, { xp: 150 });
 
+    const gatherableManager = new GatherableManager();
+    gatherableManager.canGatherQuest = (id) => questManager.getState(id) === QuestState.Active;
+    buildBitterleafPatches(scene, shadowGenerator, gatherableManager);
+
     // ── NPC: Elder Maren ───────────────────────────────────────────────────
     const elderMaren = new NpcController(scene, {
         name: "Elder Maren",
@@ -186,97 +198,211 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     const questHud = new QuestHUD();
     const combatHud = new CombatHUD();
 
+    encounterManager.onClear = (reward) => {
+        playerProgression.gainXp(reward.xp, (newLevel) => {
+            questHud.showNotification(`LEVEL UP!\nYou are now level ${newLevel}.`, 3.5);
+        });
+    };
+
     // ── Dialogue / quest wiring ────────────────────────────────────────────
 
     /** Build Elder Maren's dialogue lines for the current quest state. */
     function getElderLines(): DialogueLine[] {
-        const state = questManager.getState(QUEST_CLEAR_SCOUTS.id);
+        const scoutState = questManager.getState(QUEST_CLEAR_SCOUTS.id);
 
-        switch (state) {
-            case QuestState.NotStarted:
+        if (scoutState !== QuestState.Completed) {
+            switch (scoutState) {
+                case QuestState.NotStarted:
+                    return [
+                        {
+                            speaker: "Elder Maren",
+                            text: "Traveler! I've been praying someone capable would pass through Thornwall.",
+                        },
+                        {
+                            speaker: "Elder Maren",
+                            text: "Bandit scouts are circling our outpost — three of them, armed and dangerous.",
+                        },
+                        {
+                            speaker: "Elder Maren",
+                            text: "Would you drive them off? Head north through the gate.",
+                            choices: [
+                                {
+                                    label: "I'll handle it.",
+                                    onSelect: () => {
+                                        questManager.acceptQuest(QUEST_CLEAR_SCOUTS.id);
+                                        worldState.setFlag("elder_quest_accepted", true);
+                                        questHud.showNotification("New Quest:\nDrive Out the Scouts", 3.0);
+                                    },
+                                },
+                                {
+                                    label: "Not now.",
+                                    onSelect: () => {
+                                        /* player declined */
+                                    },
+                                },
+                            ],
+                        },
+                    ];
+
+                case QuestState.Active: {
+                    const progress = questManager.getProgress(QUEST_CLEAR_SCOUTS.id);
+                    const remaining = QUEST_CLEAR_SCOUTS.objective.required - progress;
+                    return [
+                        {
+                            speaker: "Elder Maren",
+                            text: `Please hurry — ${remaining} scout${pluralS(remaining)} still threaten us. Head north through the gate.`,
+                        },
+                    ];
+                }
+
+                case QuestState.Completable:
+                    return [
+                        {
+                            speaker: "Elder Maren",
+                            text: "You've done it! The scouts are gone — we can finally breathe again.",
+                        },
+                        {
+                            speaker: "Elder Maren",
+                            text: "Take this as our thanks. You have the gratitude of Thornwall.",
+                            choices: [
+                                {
+                                    label: "You're welcome.",
+                                    onSelect: () => {
+                                        const reward = questManager.completeQuest(QUEST_CLEAR_SCOUTS.id);
+                                        if (reward) {
+                                            playerProgression.gainXp(reward.xp, (newLevel) => {
+                                                questHud.showNotification(
+                                                    `LEVEL UP!\nYou are now level ${newLevel}.`,
+                                                    3.5
+                                                );
+                                            });
+                                            if (reward.healAmount) {
+                                                player.health.heal(reward.healAmount);
+                                            }
+                                            worldState.setFlag("quest_clear_scouts_done", true);
+                                            questHud.showNotification(
+                                                `✓  QUEST COMPLETE\nDrive Out the Scouts\n+${reward.xp} XP${reward.goldText ? "  ·  " + reward.goldText : ""}`,
+                                                5.0
+                                            );
+                                        }
+                                    },
+                                },
+                            ],
+                        },
+                    ];
+
+                default:
+                    return [{ speaker: "Elder Maren", text: "..." }];
+            }
+        }
+
+        const bitterState = questManager.getState(QUEST_BITTERLEAF_FOR_MAREN.id);
+
+        if (bitterState === QuestState.NotStarted) {
+            if (worldState.getFlag("bitterleaf_declined")) {
                 return [
                     {
                         speaker: "Elder Maren",
-                        text: "Traveler! I've been praying someone capable would pass through Thornwall.",
-                    },
-                    {
-                        speaker: "Elder Maren",
-                        text: "Bandit scouts are circling our outpost — three of them, armed and dangerous.",
-                    },
-                    {
-                        speaker: "Elder Maren",
-                        text: "Would you drive them off? Head north through the gate.",
+                        text: "Changed your mind? The bitterleaf still grows by the south wall — looks like weeds, tastes like punishment.",
                         choices: [
                             {
-                                label: "I'll handle it.",
+                                label: "Fine, I'll pick it.",
                                 onSelect: () => {
-                                    questManager.acceptQuest(QUEST_CLEAR_SCOUTS.id);
-                                    worldState.setFlag("elder_quest_accepted", true);
-                                    questHud.showNotification("New Quest:\nDrive Out the Scouts", 3.0);
+                                    questManager.acceptQuest(QUEST_BITTERLEAF_FOR_MAREN.id);
+                                    worldState.setFlag("bitterleaf_declined", false);
+                                    questHud.showNotification("New Quest:\nBitterleaf for the Kettle", 3.0);
                                 },
                             },
                             {
-                                label: "Not now.",
+                                label: "Still no.",
                                 onSelect: () => {
-                                    /* player declined */
+                                    /* declined again */
                                 },
                             },
                         ],
-                    },
-                ];
-
-            case QuestState.Active: {
-                const progress = questManager.getProgress(QUEST_CLEAR_SCOUTS.id);
-                const remaining = QUEST_CLEAR_SCOUTS.objective.required - progress;
-                return [
-                    {
-                        speaker: "Elder Maren",
-                        text: `Please hurry — ${remaining} scout${pluralS(remaining)} still threaten us. Head north through the gate.`,
                     },
                 ];
             }
-
-            case QuestState.Completable:
-                return [
-                    {
-                        speaker: "Elder Maren",
-                        text: "You've done it! The scouts are gone — we can finally breathe again.",
-                    },
-                    {
-                        speaker: "Elder Maren",
-                        text: "Take this as our thanks. You have the gratitude of Thornwall.",
-                        choices: [
-                            {
-                                label: "You're welcome.",
-                                onSelect: () => {
-                                    const reward = questManager.completeQuest(QUEST_CLEAR_SCOUTS.id);
-                                    if (reward) {
-                                        if (reward.healAmount) {
-                                            player.health.heal(reward.healAmount);
-                                        }
-                                        worldState.setFlag("quest_clear_scouts_done", true);
-                                        questHud.showNotification(
-                                            `✓  QUEST COMPLETE\nDrive Out the Scouts\n+${reward.xp} XP${reward.goldText ? "  ·  " + reward.goldText : ""}`,
-                                            5.0
-                                        );
-                                    }
-                                },
+            return [
+                {
+                    speaker: "Elder Maren",
+                    text: "Ha! While you were up north I remembered something embarrassing: we're out of bitterleaf.",
+                },
+                {
+                    speaker: "Elder Maren",
+                    text: "The stew won't fix a spear wound, but the morale tax is real. Three sprigs by the south wall — if the physics gods allow.",
+                    choices: [
+                        {
+                            label: "I'll scrape some up.",
+                            onSelect: () => {
+                                questManager.acceptQuest(QUEST_BITTERLEAF_FOR_MAREN.id);
+                                questHud.showNotification("New Quest:\nBitterleaf for the Kettle", 3.0);
                             },
-                        ],
-                    },
-                ];
-
-            case QuestState.Completed:
-                return [
-                    {
-                        speaker: "Elder Maren",
-                        text: "Thank you again, brave one. Thornwall stands because of you.",
-                    },
-                ];
-
-            default:
-                return [{ speaker: "Elder Maren", text: "..." }];
+                        },
+                        {
+                            label: "That's… not my problem.",
+                            onSelect: () => {
+                                worldState.setFlag("bitterleaf_declined", true);
+                            },
+                        },
+                    ],
+                },
+            ];
         }
+
+        if (bitterState === QuestState.Active) {
+            const p = questManager.getProgress(QUEST_BITTERLEAF_FOR_MAREN.id);
+            const need = QUEST_BITTERLEAF_FOR_MAREN.objective.required - p;
+            return [
+                {
+                    speaker: "Elder Maren",
+                    text: `Three sprigs, traveler. You have ${p} — only ${need} more. Try not to clip through the geometry; the last hero did and we pretended not to notice.`,
+                },
+            ];
+        }
+
+        if (bitterState === QuestState.Completable) {
+            return [
+                {
+                    speaker: "Elder Maren",
+                    text: "Ah — that reeks correctly. The kettle thanks you, probably.",
+                },
+                {
+                    speaker: "Elder Maren",
+                    text: "Here's what passes for payment around here.",
+                    choices: [
+                        {
+                            label: "Keep the stew.",
+                            onSelect: () => {
+                                const reward = questManager.completeQuest(QUEST_BITTERLEAF_FOR_MAREN.id);
+                                if (reward) {
+                                    playerProgression.gainXp(reward.xp, (newLevel) => {
+                                        questHud.showNotification(
+                                            `LEVEL UP!\nYou are now level ${newLevel}.`,
+                                            3.5
+                                        );
+                                    });
+                                    if (reward.healAmount) {
+                                        player.health.heal(reward.healAmount);
+                                    }
+                                    questHud.showNotification(
+                                        `✓  QUEST COMPLETE\nBitterleaf for the Kettle\n+${reward.xp} XP${reward.goldText ? "  ·  " + reward.goldText : ""}`,
+                                        5.0
+                                    );
+                                }
+                            },
+                        },
+                    ],
+                },
+            ];
+        }
+
+        return [
+            {
+                speaker: "Elder Maren",
+                text: "The outpost endures — janky, proud, and slightly over-leveled. Come back if fate invents another errand.",
+            },
+        ];
     }
 
     function handleInteraction(npc: NpcController): void {
@@ -296,6 +422,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
         questManager,
         worldState,
         interactionSystem,
+        gatherableManager,
+        playerProgression,
         shadowGenerator,
         encounterManager,
         handleInteraction,
@@ -398,6 +526,60 @@ function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void
         s.position.set(sx, sy, sz);
         s.rotation.y = sx * 1.3;
         s.material = stoneMat;
+    }
+}
+
+/**
+ * Decorative bitterleaf clumps south of the hub; walk up and press T while the
+ * gather quest is active to credit progress.
+ */
+function buildBitterleafPatches(
+    scene: Scene,
+    shadowGenerator: ShadowGenerator,
+    gatherableManager: GatherableManager
+): void {
+    const stemMat = new PBRMetallicRoughnessMaterial("bitterleafStemMat", scene);
+    stemMat.baseColor = new Color3(0.22, 0.32, 0.14);
+    stemMat.roughness = 0.92;
+
+    const leafMat = new PBRMetallicRoughnessMaterial("bitterleafLeafMat", scene);
+    leafMat.baseColor = new Color3(0.35, 0.52, 0.22);
+    leafMat.roughness = 0.78;
+
+    const positions: [number, number][] = [
+        [-10, -12],
+        [2, -14],
+        [12, -10],
+    ];
+
+    let i = 0;
+    for (const [x, z] of positions) {
+        const root = MeshBuilder.CreateBox(`bitterleaf_${i}`, { width: 0.01, height: 0.01, depth: 0.01 }, scene) as Mesh;
+        root.position.set(x, 0, z);
+        root.isPickable = false;
+
+        const stem = MeshBuilder.CreateCylinder(`bitterleafStem_${i}`, { diameter: 0.08, height: 0.35 }, scene) as Mesh;
+        stem.parent = root;
+        stem.position.y = 0.2;
+        stem.material = stemMat;
+        stem.receiveShadows = true;
+        shadowGenerator.addShadowCaster(stem);
+
+        const leaf = MeshBuilder.CreateSphere(`bitterleafLeaf_${i}`, { diameter: 0.42 }, scene) as Mesh;
+        leaf.parent = stem;
+        leaf.position.y = 0.28;
+        leaf.scaling.set(1.1, 0.45, 0.9);
+        leaf.material = leafMat;
+        leaf.receiveShadows = true;
+        shadowGenerator.addShadowCaster(leaf);
+
+        gatherableManager.register({
+            mesh: root,
+            questId: QUEST_BITTERLEAF_FOR_MAREN.id,
+            pickupRange: 2.8,
+            prompt: "Gather bitterleaf",
+        });
+        i++;
     }
 }
 

@@ -5,7 +5,7 @@
  */
 export class HealthComponent {
     private current: number;
-    private readonly max: number;
+    private maxHealth: number;
     private dead = false;
 
     /** Called with the actual damage amount dealt each time the entity is hit. */
@@ -14,8 +14,18 @@ export class HealthComponent {
     onDeath: (() => void) | null = null;
 
     constructor(maxHp: number) {
-        this.max = maxHp;
+        this.maxHealth = maxHp;
         this.current = maxHp;
+    }
+
+    /**
+     * Raises the health ceiling (e.g. on level up). Current HP rises by the same
+     * delta so a level-up feels rewarding without a full overheal exploit.
+     */
+    growMaxHp(delta: number): void {
+        if (this.dead || delta <= 0) return;
+        this.maxHealth += delta;
+        this.current += delta;
     }
 
     takeDamage(amount: number): void {
@@ -31,17 +41,17 @@ export class HealthComponent {
 
     heal(amount: number): void {
         if (this.dead) return;
-        this.current = Math.min(this.max, this.current + amount);
+        this.current = Math.min(this.maxHealth, this.current + amount);
     }
 
     get hp(): number {
         return this.current;
     }
     get maxHp(): number {
-        return this.max;
+        return this.maxHealth;
     }
     get percent(): number {
-        return this.current / this.max;
+        return this.current / this.maxHealth;
     }
     get isDead(): boolean {
         return this.dead;

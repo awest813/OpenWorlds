@@ -87,10 +87,18 @@ export class GameBootstrap {
             // Dialogue mode: freeze movement/combat; only process dialogue input
             ctx.dialogueSystem.update(this.input);
         } else {
-            // Check for NPC interaction (T key near an NPC)
-            const npc = ctx.interactionSystem.checkInteract(this.input);
-            if (npc !== null) {
-                ctx.handleInteraction(npc);
+            // NPC talk takes priority over gatherables on the same key (T).
+            if (this.input.isJustPressed("t")) {
+                const npc = ctx.interactionSystem.getNearbyNpc();
+                if (npc !== null) {
+                    ctx.handleInteraction(npc);
+                } else {
+                    const questId = ctx.gatherableManager.tryPickup(playerPos, this.input);
+                    if (questId !== null) {
+                        ctx.questManager.recordGather(questId);
+                        ctx.questHud.showNotification("Gathered: bitterleaf", 2.0);
+                    }
+                }
             }
 
             // Combat must run before PlayerController so the movement lock is
@@ -114,12 +122,18 @@ export class GameBootstrap {
             ctx.combatController,
             ctx.targetSystem,
             ctx.player.health,
-            ctx.encounterManager
+            ctx.encounterManager,
+            ctx.playerProgression
         );
+        const gatherPrompt =
+            ctx.interactionSystem.getNearbyNpc() === null
+                ? ctx.gatherableManager.getPromptInRange(playerPos)
+                : null;
         ctx.questHud.update(
             dt,
             ctx.questManager,
-            ctx.interactionSystem.getNearbyNpc()?.name ?? null
+            ctx.interactionSystem.getNearbyNpc()?.name ?? null,
+            gatherPrompt
         );
 
         // Flush single-frame input state last so all systems see it this tick.
