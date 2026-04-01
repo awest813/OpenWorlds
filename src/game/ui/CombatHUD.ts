@@ -3,6 +3,7 @@ import { TargetSystem } from "../combat/TargetSystem";
 import { HealthComponent } from "../combat/HealthComponent";
 import { EncounterManager, EncounterState } from "../encounter/EncounterManager";
 import { COMBAT_CONFIG } from "../combat/CombatConfig";
+import { PlayerProgression } from "../progression/PlayerProgression";
 
 /**
  * Minimal DOM overlay HUD for the combat prototype.
@@ -47,6 +48,11 @@ export class CombatHUD {
     private readonly playerHpPanel: HTMLDivElement;
     private readonly playerHpFill: HTMLDivElement;
     private readonly playerHpText: HTMLSpanElement;
+
+    // XP bar (bottom-left, above HP — MMO-style progression readout)
+    private readonly xpPanel: HTMLDivElement;
+    private readonly xpFill: HTMLDivElement;
+    private readonly xpText: HTMLSpanElement;
 
     // Encounter status (bottom-right)
     private readonly encounterPanel: HTMLDivElement;
@@ -206,6 +212,47 @@ export class CombatHUD {
         this.playerHpPanel.appendChild(playerHpTrack);
         this.playerHpPanel.appendChild(this.playerHpText);
 
+        // ── XP bar (bottom-left, above HP) ─────────────────────────────────
+        this.xpPanel = CombatHUD.el("div", {
+            position: "absolute",
+            bottom: "108px",
+            left: "12px",
+            background: "rgba(0,0,0,0.55)",
+            border: "1px solid rgba(120,180,255,0.35)",
+            borderRadius: "6px",
+            padding: "6px 12px",
+            minWidth: "200px",
+        });
+        const xpLabel = CombatHUD.el("span", {
+            display: "block",
+            color: "#8ab4ff",
+            fontSize: "11px",
+            marginBottom: "3px",
+        });
+        xpLabel.textContent = "EXPERIENCE";
+        const xpTrack = CombatHUD.el("div", {
+            height: "6px",
+            background: "rgba(255,255,255,0.12)",
+            borderRadius: "3px",
+            overflow: "hidden",
+            marginBottom: "3px",
+        });
+        this.xpFill = CombatHUD.el("div", {
+            height: "100%",
+            width: "0%",
+            background: "linear-gradient(90deg, #3a6ea5, #7eb8ff)",
+            borderRadius: "3px",
+            transition: "width 0.12s",
+        });
+        this.xpText = CombatHUD.el("span", {
+            color: "#aac8ff",
+            fontSize: "11px",
+        }) as HTMLSpanElement;
+        xpTrack.appendChild(this.xpFill);
+        this.xpPanel.appendChild(xpLabel);
+        this.xpPanel.appendChild(xpTrack);
+        this.xpPanel.appendChild(this.xpText);
+
         // ── Encounter status (bottom-right) ───────────────────────────────
         this.encounterPanel = CombatHUD.el("div", {
             position: "absolute",
@@ -267,6 +314,7 @@ export class CombatHUD {
         this.root.appendChild(this.targetPanel);
         this.root.appendChild(this.comboPanel);
         this.root.appendChild(this.abilityRow);
+        this.root.appendChild(this.xpPanel);
         this.root.appendChild(this.playerHpPanel);
         this.root.appendChild(this.encounterPanel);
         this.root.appendChild(this.bannerPanel);
@@ -280,11 +328,13 @@ export class CombatHUD {
         combat: CombatController,
         targeting: TargetSystem,
         playerHealth: HealthComponent,
-        encounter: EncounterManager
+        encounter: EncounterManager,
+        progression: PlayerProgression
     ): void {
         this.updateTarget(targeting);
         this.updateCombo(combat);
         this.updateAbilities(combat);
+        this.updateXp(progression);
         this.updatePlayerHp(playerHealth);
         this.updateEncounter(encounter);
         this.updateState(combat);
@@ -349,6 +399,14 @@ export class CombatHUD {
             phase === CombatPhase.UsingAbility && combat.spinSlash.cooldownRemaining >= combat.spinSlash.cooldown - 0.05,
             "Q"
         );
+    }
+
+    private updateXp(progression: PlayerProgression): void {
+        const frac = progression.getXpBarFraction();
+        this.xpFill.style.width = `${(frac * 100).toFixed(0)}%`;
+        const toward = progression.getXpTowardNext();
+        const need = progression.getXpToNextLevel();
+        this.xpText.textContent = `Lv ${progression.getLevel()}  ·  ${toward} / ${need} XP`;
     }
 
     private updatePlayerHp(health: HealthComponent): void {

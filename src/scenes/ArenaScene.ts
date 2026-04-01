@@ -22,6 +22,7 @@ import { TargetSystem } from "../game/combat/TargetSystem";
 import { CombatController } from "../game/combat/CombatController";
 import { CombatHUD } from "../game/ui/CombatHUD";
 import { EncounterManager } from "../game/encounter/EncounterManager";
+import { PlayerProgression } from "../game/progression/PlayerProgression";
 
 export interface ArenaSceneContext {
     player: PlayerController;
@@ -29,6 +30,7 @@ export interface ArenaSceneContext {
     targetSystem: TargetSystem;
     combatController: CombatController;
     combatHud: CombatHUD;
+    playerProgression: PlayerProgression;
     shadowGenerator: ShadowGenerator;
     encounterManager: EncounterManager;
 }
@@ -112,7 +114,17 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
 
     // --- HUD ---
     const combatHud = new CombatHUD();
+    const playerProgression = new PlayerProgression(player.health);
 
-    return { player, enemies, targetSystem, combatController, combatHud, shadowGenerator, encounterManager };
+    return {
+        player,
+        enemies,
+        targetSystem,
+        combatController,
+        combatHud,
+        playerProgression,
+        shadowGenerator,
+        encounterManager,
+    };
 }
 
