@@ -62,6 +62,10 @@ npm run lint:fix
 npm run format
 ```
 
+## Related Babylon.js RPGs
+
+If you want another take on browser action RPGs in Babylon.js, [**hdevx/3D-Action-RPG-JavaScript**](https://github.com/hdevx/3D-Action-RPG-JavaScript) is worth a look: vanilla JavaScript (no bundler), a **scene manager** for switching levels, terrain and animation examples, and an **in-game level builder**. You can [play the hosted demo](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=outdoor) and switch scenes with query params such as [`?scene=inn`](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=inn), [`?scene=outdoor`](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=outdoor), or [`?scene=builder`](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=builder). Append [`&debug=true`](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=outdoor&debug=true) to open a scene inspector.
+
 ## Tech Stack
 
 - Babylon.js + Havok physics
