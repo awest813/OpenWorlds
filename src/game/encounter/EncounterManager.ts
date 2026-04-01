@@ -1,13 +1,17 @@
 import { EnemyController } from "../combat/EnemyController";
+import { LootRollResult, mergeLootDrops, rollLootFromTableId } from "../loot/LootTables";
 
 export enum EncounterState {
     Active = "Active",
     Clear = "Clear",
 }
 
-/** Minimal post-combat reward data. Extend later with loot, unlocks, etc. */
+/** Post-combat reward: XP plus optional weighted loot table roll. */
 export interface EncounterReward {
     xp: number;
+    /** If set, this many independent weighted picks are rolled when the encounter clears. */
+    lootTableId?: string;
+    lootPickCount?: number;
 }
 
 /**
@@ -27,7 +31,9 @@ export class EncounterManager {
     private readonly reward: EncounterReward;
 
     /** Called once when the last enemy falls. Receives the reward data. */
-    onClear: ((reward: EncounterReward) => void) | null = null;
+    onClear: ((reward: EncounterReward, loot: LootRollResult | null) => void) | null = null;
+
+    private lastLoot: LootRollResult | null = null;
 
     constructor(enemies: EnemyController[], reward: EncounterReward) {
         this.enemies = enemies;
@@ -38,7 +44,15 @@ export class EncounterManager {
         if (this.state !== EncounterState.Active) return;
         if (this.enemies.length > 0 && this.enemies.every((e) => !e.isAlive())) {
             this.state = EncounterState.Clear;
-            this.onClear?.(this.reward);
+            this.lastLoot = null;
+            const tableId = this.reward.lootTableId;
+            const picks = this.reward.lootPickCount ?? 0;
+            if (tableId && picks > 0) {
+                const rolled = rollLootFromTableId(tableId, picks);
+                const merged = rolled && rolled.drops.length ? mergeLootDrops(rolled.drops) : [];
+                this.lastLoot = merged.length ? { tableId, drops: merged } : null;
+            }
+            this.onClear?.(this.reward, this.lastLoot);
         }
     }
 
@@ -52,5 +66,9 @@ export class EncounterManager {
 
     isClear(): boolean {
         return this.state === EncounterState.Clear;
+    }
+
+    getLastLoot(): LootRollResult | null {
+        return this.lastLoot;
     }
 }

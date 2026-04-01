@@ -34,6 +34,8 @@ import { DialogueSystem, DialogueLine } from "../game/dialogue/DialogueSystem";
 import { QuestHUD } from "../game/ui/QuestHUD";
 import { GatherableManager } from "../game/world/GatherableManager";
 import { PlayerProgression } from "../game/progression/PlayerProgression";
+import { PlayerBuild } from "../game/progression/PlayerBuild";
+import { LOOT_TABLE_SCOUT_ENCOUNTER } from "../game/loot/LootTables";
 
 export interface HubSceneContext {
     player: PlayerController;
@@ -49,6 +51,7 @@ export interface HubSceneContext {
     interactionSystem: InteractionSystem;
     gatherableManager: GatherableManager;
     playerProgression: PlayerProgression;
+    playerBuild: PlayerBuild;
     shadowGenerator: ShadowGenerator;
     encounterManager: EncounterManager;
     /** Call when the player interacts with an NPC; handles dialogue routing. */
@@ -142,6 +145,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     shadowGenerator.addShadowCaster(player.model);
 
     const playerProgression = new PlayerProgression(player.health);
+    const playerBuild = new PlayerBuild(player.health, playerProgression);
 
     // ── Enemies (combat zone) ──────────────────────────────────────────────
     const enemies: EnemyController[] = [
@@ -167,12 +171,17 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
         player.getTransform(),
         player.physicsAggregate,
         input,
-        targetSystem
+        targetSystem,
+        playerBuild
     );
     player.combatController = combatController;
 
     // ── Encounter manager ──────────────────────────────────────────────────
-    const encounterManager = new EncounterManager(enemies, { xp: 150 });
+    const encounterManager = new EncounterManager(enemies, {
+        xp: 150,
+        lootTableId: LOOT_TABLE_SCOUT_ENCOUNTER.id,
+        lootPickCount: 2,
+    });
 
     const gatherableManager = new GatherableManager();
     gatherableManager.canGatherQuest = (id) => questManager.getState(id) === QuestState.Active;
@@ -198,10 +207,15 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     const questHud = new QuestHUD();
     const combatHud = new CombatHUD();
 
-    encounterManager.onClear = (reward) => {
+    encounterManager.onClear = (reward, loot) => {
         playerProgression.gainXp(reward.xp, (newLevel) => {
+            playerBuild.onLevelUp();
             questHud.showNotification(`LEVEL UP!\nYou are now level ${newLevel}.`, 3.5);
         });
+        if (loot && loot.drops.length > 0) {
+            const lines = playerBuild.applyLootDrops(loot.drops);
+            questHud.showNotification(`Loot:\n${lines.join("\n")}`, 4.5);
+        }
     };
 
     // ── Dialogue / quest wiring ────────────────────────────────────────────
@@ -271,6 +285,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
                                         const reward = questManager.completeQuest(QUEST_CLEAR_SCOUTS.id);
                                         if (reward) {
                                             playerProgression.gainXp(reward.xp, (newLevel) => {
+                                                playerBuild.onLevelUp();
                                                 questHud.showNotification(
                                                     `LEVEL UP!\nYou are now level ${newLevel}.`,
                                                     3.5
@@ -377,6 +392,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
                                 const reward = questManager.completeQuest(QUEST_BITTERLEAF_FOR_MAREN.id);
                                 if (reward) {
                                     playerProgression.gainXp(reward.xp, (newLevel) => {
+                                        playerBuild.onLevelUp();
                                         questHud.showNotification(
                                             `LEVEL UP!\nYou are now level ${newLevel}.`,
                                             3.5
@@ -424,6 +440,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
         interactionSystem,
         gatherableManager,
         playerProgression,
+        playerBuild,
         shadowGenerator,
         encounterManager,
         handleInteraction,

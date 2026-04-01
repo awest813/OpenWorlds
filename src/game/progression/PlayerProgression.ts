@@ -10,12 +10,17 @@ export class PlayerProgression {
     private xpTowardNext = 0;
 
     /** Max HP gained each time the player levels up. */
-    private static readonly HP_PER_LEVEL = 8;
+    static readonly HP_PER_LEVEL = 8;
 
     constructor(private readonly health: HealthComponent) {}
 
     getLevel(): number {
         return this.level;
+    }
+
+    /** Total max-HP increase from level-ups since level 1. */
+    getAccumulatedLevelHpBonus(): number {
+        return (this.level - 1) * PlayerProgression.HP_PER_LEVEL;
     }
 
     getXpTowardNext(): number {

@@ -28,6 +28,24 @@ export class HealthComponent {
         this.current += delta;
     }
 
+    /** Sets max HP directly (class respec, load). Optionally refills to full. */
+    setMaxHealth(newMax: number, options?: { healToFull?: boolean }): void {
+        if (this.dead || newMax <= 0) return;
+        this.maxHealth = newMax;
+        if (options?.healToFull) {
+            this.current = newMax;
+        } else {
+            this.current = Math.min(this.current, newMax);
+        }
+    }
+
+    /** Shifts max HP (class change, skill refund). Current HP is clamped to the new cap. */
+    adjustMaxHp(delta: number): void {
+        if (this.dead || delta === 0) return;
+        this.maxHealth = Math.max(1, this.maxHealth + delta);
+        this.current = Math.min(this.current, this.maxHealth);
+    }
+
     takeDamage(amount: number): void {
         if (this.dead) return;
         const dealt = Math.min(amount, this.current);

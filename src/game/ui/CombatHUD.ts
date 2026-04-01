@@ -4,6 +4,8 @@ import { HealthComponent } from "../combat/HealthComponent";
 import { EncounterManager, EncounterState } from "../encounter/EncounterManager";
 import { COMBAT_CONFIG } from "../combat/CombatConfig";
 import { PlayerProgression } from "../progression/PlayerProgression";
+import { PlayerBuild } from "../progression/PlayerBuild";
+import { formatLootSummary } from "../loot/LootTables";
 
 /**
  * Minimal DOM overlay HUD for the combat prototype.
@@ -64,6 +66,12 @@ export class CombatHUD {
 
     // Debug state
     private readonly stateLabel: HTMLDivElement;
+
+    // Class / loot / skill summary (top-left stack)
+    private readonly buildPanel: HTMLDivElement;
+    private readonly buildClassLine: HTMLSpanElement;
+    private readonly buildResourcesLine: HTMLSpanElement;
+    private readonly buildSkillHint: HTMLSpanElement;
 
     constructor() {
         this.root = CombatHUD.el("div", {
@@ -295,6 +303,26 @@ export class CombatHUD {
             fontSize: "12px",
         });
 
+        this.buildPanel = CombatHUD.el("div", {
+            position: "absolute",
+            top: "44px",
+            left: "12px",
+            background: "rgba(0,0,0,0.5)",
+            border: "1px solid rgba(140,200,255,0.35)",
+            borderRadius: "6px",
+            padding: "6px 10px",
+            maxWidth: "320px",
+            fontSize: "11px",
+            lineHeight: "1.45",
+            color: "#c8d8e8",
+        });
+        this.buildClassLine = CombatHUD.el("span", { display: "block", color: "#9ec8ff", marginBottom: "2px" }) as HTMLSpanElement;
+        this.buildResourcesLine = CombatHUD.el("span", { display: "block", color: "#b0c4d8" }) as HTMLSpanElement;
+        this.buildSkillHint = CombatHUD.el("span", { display: "block", color: "#8899aa", marginTop: "4px", fontSize: "10px" }) as HTMLSpanElement;
+        this.buildPanel.appendChild(this.buildClassLine);
+        this.buildPanel.appendChild(this.buildResourcesLine);
+        this.buildPanel.appendChild(this.buildSkillHint);
+
         // ── Controls hint (bottom-left, below HP) ─────────────────────────
         const hint = CombatHUD.el("div", {
             position: "absolute",
@@ -308,7 +336,7 @@ export class CombatHUD {
             lineHeight: "1.6",
         });
         hint.innerHTML =
-            "WASD move &nbsp;|&nbsp; J / LMB attack &nbsp;|&nbsp; E dash-strike &nbsp;|&nbsp; Q spin-slash &nbsp;|&nbsp; Space dodge &nbsp;|&nbsp; F target &nbsp;|&nbsp; T talk &nbsp;|&nbsp; R reset";
+            "WASD move &nbsp;|&nbsp; J / LMB attack &nbsp;|&nbsp; E dash-strike &nbsp;|&nbsp; Q spin-slash &nbsp;|&nbsp; Space dodge &nbsp;|&nbsp; F target &nbsp;|&nbsp; T talk &nbsp;|&nbsp; C class &nbsp;|&nbsp; 1–9 skills &nbsp;|&nbsp; R reset";
 
         // ── Assemble ──────────────────────────────────────────────────────
         this.root.appendChild(this.targetPanel);
@@ -319,6 +347,7 @@ export class CombatHUD {
         this.root.appendChild(this.encounterPanel);
         this.root.appendChild(this.bannerPanel);
         this.root.appendChild(this.stateLabel);
+        this.root.appendChild(this.buildPanel);
         this.root.appendChild(hint);
         document.body.appendChild(this.root);
     }
@@ -329,7 +358,8 @@ export class CombatHUD {
         targeting: TargetSystem,
         playerHealth: HealthComponent,
         encounter: EncounterManager,
-        progression: PlayerProgression
+        progression: PlayerProgression,
+        playerBuild: PlayerBuild
     ): void {
         this.updateTarget(targeting);
         this.updateCombo(combat);
@@ -338,6 +368,7 @@ export class CombatHUD {
         this.updatePlayerHp(playerHealth);
         this.updateEncounter(encounter);
         this.updateState(combat);
+        this.updateBuildPanel(playerBuild);
     }
 
     dispose(): void {
@@ -430,7 +461,10 @@ export class CombatHUD {
 
     private updateEncounter(encounter: EncounterManager): void {
         if (encounter.isClear()) {
-            this.encounterText.textContent = `✓ ENCOUNTER CLEAR  +${encounter.getReward().xp} XP`;
+            const loot = encounter.getLastLoot();
+            const lootSuffix =
+                loot && loot.drops.length > 0 ? `  ·  ${formatLootSummary(loot.drops)}` : "";
+            this.encounterText.textContent = `✓ ENCOUNTER CLEAR  +${encounter.getReward().xp} XP${lootSuffix}`;
             this.encounterText.style.color = "#7eff7e";
         } else {
             this.encounterText.textContent = "● ENCOUNTER ACTIVE";
@@ -439,7 +473,28 @@ export class CombatHUD {
 
         // Show clear banner once
         if (encounter.getState() === EncounterState.Clear && this.bannerPanel.style.display === "none") {
-            this.showBanner(`✓  ENCOUNTER CLEAR\n+${encounter.getReward().xp} XP\n\nPress R to replay`, "#7eff7e");
+            const loot = encounter.getLastLoot();
+            const lootLine =
+                loot && loot.drops.length > 0 ? `\n${formatLootSummary(loot.drops)}` : "";
+            this.showBanner(`✓  ENCOUNTER CLEAR\n+${encounter.getReward().xp} XP${lootLine}\n\nPress R to replay`, "#7eff7e");
+        }
+    }
+
+    private updateBuildPanel(playerBuild: PlayerBuild): void {
+        const sp = playerBuild.skillTree.getSkillPoints();
+        const unlockable = playerBuild.listUnlockableSkillNodes();
+        this.buildClassLine.textContent = `Class: ${playerBuild.getClassDisplayName()}  (C cycle)`;
+        this.buildResourcesLine.textContent = `Gold ${playerBuild.getGold()}  ·  Skill points ${sp}`;
+        if (unlockable.length > 0) {
+            const preview = unlockable
+                .slice(0, 3)
+                .map((n, i) => `${i + 1}:${n.displayName}`)
+                .join("  ");
+            this.buildSkillHint.textContent = `Skills: keys 1–9 buy (next: ${preview}${unlockable.length > 3 ? "…" : ""})`;
+        } else if (sp > 0) {
+            this.buildSkillHint.textContent = "Skills: unlock prerequisites to spend points.";
+        } else {
+            this.buildSkillHint.textContent = "Skills: level up for points.";
         }
     }
 
