@@ -37,7 +37,7 @@
     "watch": "webpack --watch",
     "serve": "webpack serve",
     "format": "prettier --config .prettierrc 'src/**/*.ts' --write",
-    "lint:check": "eslint src/ts src/core src/game src/scenes src/utils --ext .ts",
-    "lint:fix": "eslint src/ts src/core src/game src/scenes src/utils --ext .ts --fix"
+    "lint:check": "eslint src/ts src/core src/game src/scenes src/utils src/rendering --ext .ts",
+    "lint:fix": "eslint src/ts src/core src/game src/scenes src/utils src/rendering --ext .ts --fix"
   }
 }

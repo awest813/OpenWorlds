@@ -1,3 +1,4 @@
+import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader";
 import { Scene } from "@babylonjs/core/scene";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
@@ -13,6 +14,20 @@ import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 import { ReflectionProbe } from "@babylonjs/core/Probes/reflectionProbe";
 import { SkyMaterial } from "@babylonjs/materials";
+
+import "@babylonjs/core/Animations/animatable";
+import "@babylonjs/loaders/glTF/2.0/glTFLoader";
+
+import {
+    applyStylizedSceneAtmosphere,
+    attachStylizedRenderingPipeline,
+    bindOutdoorEnvironment,
+    createCobbleMaterial,
+    createGrassTerrainMaterial,
+    createRockyTerrainMaterial,
+    createWeatheredStoneMaterial,
+    createWoodPlankMaterial,
+} from "../rendering/StylizedLook";
 
 import { InputManager } from "../game/input/InputManager";
 import { PlayerController } from "../game/player/PlayerController";
@@ -81,22 +96,36 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     questManager.register(QUEST_CLEAR_SCOUTS);
     questManager.register(QUEST_BITTERLEAF_FOR_MAREN);
 
-    // ── Lighting ───────────────────────────────────────────────────────────
-    const sun = new DirectionalLight("sun", new Vector3(-5, -10, 5).normalize(), scene);
-    sun.position = sun.direction.negate().scaleInPlace(60);
-    sun.intensity = 1.0;
+    applyStylizedSceneAtmosphere(scene);
 
-    const shadowGenerator = new ShadowGenerator(1024, sun);
-    shadowGenerator.useExponentialShadowMap = true;
+    // ── Lighting ───────────────────────────────────────────────────────────
+    const sun = new DirectionalLight("sun", new Vector3(-4.2, -9, 3.8).normalize(), scene);
+    sun.position = sun.direction.negate().scaleInPlace(85);
+    sun.diffuse = new Color3(1.0, 0.94, 0.82);
+    sun.intensity = 1.35;
+
+    const shadowGenerator = new ShadowGenerator(2048, sun);
+    shadowGenerator.usePercentageCloserFiltering = true;
+    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_HIGH;
+    shadowGenerator.bias = 0.0008;
+    shadowGenerator.normalBias = 0.02;
+    shadowGenerator.darkness = 0.35;
 
     const hemi = new HemisphericLight("hemi", Vector3.Up(), scene);
-    hemi.intensity = 0.35;
+    hemi.diffuse = new Color3(0.55, 0.62, 0.85);
+    hemi.groundColor = new Color3(0.22, 0.2, 0.18);
+    hemi.intensity = 0.52;
 
     // ── Sky ────────────────────────────────────────────────────────────────
     const skyMat = new SkyMaterial("skyMat", scene);
     skyMat.backFaceCulling = false;
     skyMat.useSunPosition = true;
     skyMat.sunPosition = sun.direction.negate();
+    skyMat.luminance = 0.85;
+    skyMat.turbidity = 4;
+    skyMat.rayleigh = 1.35;
+    skyMat.mieCoefficient = 0.0045;
+    skyMat.mieDirectionalG = 0.75;
 
     const skybox = MeshBuilder.CreateBox("skyBox", { size: 500 }, scene);
     skybox.material = skyMat;
@@ -106,30 +135,39 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     scene.environmentTexture = rp.cubeTexture;
 
     // ── Ground ─────────────────────────────────────────────────────────────
-    // Main physics ground (invisible base)
-    const groundPhysMat = new PBRMetallicRoughnessMaterial("groundPhysMat", scene);
-    groundPhysMat.baseColor = new Color3(0.35, 0.32, 0.28);
-    groundPhysMat.roughness = 0.95;
+    // Main physics ground (invisible base) — distant wild soil
+    const groundPhysMat = createRockyTerrainMaterial("groundPhysMat", scene, {
+        uScale: 28,
+        vScale: 28,
+        baseTint: new Color3(0.62, 0.58, 0.52),
+    });
+    bindOutdoorEnvironment(groundPhysMat, scene);
 
     const ground = MeshBuilder.CreateGround("ground", { width: 200, height: 200 }, scene);
     ground.material = groundPhysMat;
     ground.receiveShadows = true;
     new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene);
 
-    // Hub area — warmer, paved feel
-    const hubGroundMat = new PBRMetallicRoughnessMaterial("hubGroundMat", scene);
-    hubGroundMat.baseColor = new Color3(0.56, 0.52, 0.44);
-    hubGroundMat.roughness = 0.92;
+    // Hub area — cobble / worn stone plaza
+    const hubGroundMat = createCobbleMaterial("hubGroundMat", scene, {
+        uScale: 16,
+        vScale: 17,
+        baseTint: new Color3(0.78, 0.74, 0.66),
+    });
+    bindOutdoorEnvironment(hubGroundMat, scene);
 
     const hubGround = MeshBuilder.CreateGround("hubGround", { width: 40, height: 42 }, scene);
     hubGround.material = hubGroundMat;
     hubGround.position.set(0, 0.01, -1);
     hubGround.receiveShadows = true;
 
-    // Combat zone — darker, more foreboding
-    const combatGroundMat = new PBRMetallicRoughnessMaterial("combatGroundMat", scene);
-    combatGroundMat.baseColor = new Color3(0.28, 0.26, 0.23);
-    combatGroundMat.roughness = 0.96;
+    // Combat zone — grass-tinted broken ground
+    const combatGroundMat = createGrassTerrainMaterial("combatGroundMat", scene, {
+        uScale: 14,
+        vScale: 14,
+        baseTint: new Color3(0.45, 0.52, 0.38),
+    });
+    bindOutdoorEnvironment(combatGroundMat, scene);
 
     const combatGround = MeshBuilder.CreateGround("combatGround", { width: 60, height: 60 }, scene);
     combatGround.material = combatGroundMat;
@@ -139,10 +177,14 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     // ── Hub structures ─────────────────────────────────────────────────────
     buildHubStructure(scene, shadowGenerator);
 
+    await scatterVillageRocks(scene, shadowGenerator);
+
     // ── Player ─────────────────────────────────────────────────────────────
     const player = await PlayerController.CreateAsync(scene, input);
     player.getTransform().position.set(0, 3, -14);
     shadowGenerator.addShadowCaster(player.model);
+
+    attachStylizedRenderingPipeline(scene, player.camera.camera);
 
     const playerProgression = new PlayerProgression(player.health);
     const playerBuild = new PlayerBuild(player.health, playerProgression);
@@ -192,7 +234,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
         name: "Elder Maren",
         position: new Vector3(4, 0, 1),
         interactRange: 3.5,
-        bodyColor: new Color3(0.72, 0.62, 0.32),
+        bodyColor: new Color3(0.58, 0.48, 0.36),
     });
     shadowGenerator.addShadowCaster(elderMaren.mesh);
 
@@ -456,13 +498,19 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
  * North wall has an 8-unit gap at x: -4..4 to serve as the gate to the combat zone.
  */
 function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void {
-    const wallMat = new PBRMetallicRoughnessMaterial("hubWallMat", scene);
-    wallMat.baseColor = new Color3(0.52, 0.5, 0.46);
-    wallMat.roughness = 0.9;
+    const wallMat = createWeatheredStoneMaterial("hubWallMat", scene, {
+        uScale: 2.8,
+        vScale: 2.2,
+        baseTint: new Color3(0.68, 0.66, 0.6),
+    });
+    bindOutdoorEnvironment(wallMat, scene);
 
-    const pillarMat = new PBRMetallicRoughnessMaterial("hubPillarMat", scene);
-    pillarMat.baseColor = new Color3(0.58, 0.55, 0.5);
-    pillarMat.roughness = 0.88;
+    const pillarMat = createWeatheredStoneMaterial("hubPillarMat", scene, {
+        uScale: 2.2,
+        vScale: 3.2,
+        baseTint: new Color3(0.62, 0.6, 0.55),
+    });
+    bindOutdoorEnvironment(pillarMat, scene);
 
     // Helper: static physics box
     function staticBox(name: string, w: number, h: number, d: number, x: number, z: number): Mesh {
@@ -506,9 +554,12 @@ function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void
     pillar("pillarGE", 4, 18);
 
     // ── Campfire (visual only) ─────────────────────────────────────────────
-    const logMat = new PBRMetallicRoughnessMaterial("logMat", scene);
-    logMat.baseColor = new Color3(0.3, 0.18, 0.08);
-    logMat.roughness = 0.95;
+    const logMat = createWoodPlankMaterial("logMat", scene, {
+        uScale: 1.4,
+        vScale: 1.4,
+        baseTint: new Color3(0.38, 0.24, 0.12),
+    });
+    bindOutdoorEnvironment(logMat, scene);
 
     const logs = MeshBuilder.CreateCylinder("campfireLogs", { diameter: 0.7, height: 0.22 }, scene) as Mesh;
     logs.position.set(-5, 0.11, -5);
@@ -529,9 +580,12 @@ function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void
     fireLight.range = 14;
 
     // ── Rubble / detail stones near NPC ───────────────────────────────────
-    const stoneMat = new PBRMetallicRoughnessMaterial("stoneMat", scene);
-    stoneMat.baseColor = new Color3(0.45, 0.43, 0.4);
-    stoneMat.roughness = 0.94;
+    const stoneMat = createRockyTerrainMaterial("stoneMat", scene, {
+        uScale: 4,
+        vScale: 4,
+        baseTint: new Color3(0.52, 0.5, 0.46),
+    });
+    bindOutdoorEnvironment(stoneMat, scene);
 
     const stonePositions: [number, number, number, number][] = [
         [-8, 0.2, 2, 0.4],
@@ -543,6 +597,45 @@ function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void
         s.position.set(sx, sy, sz);
         s.rotation.y = sx * 1.3;
         s.material = stoneMat;
+        s.receiveShadows = true;
+        shadowGenerator.addShadowCaster(s);
+    }
+}
+
+const VILLAGE_ROCK_URL = "https://assets.babylonjs.com/meshes/villagePack/rocks1/rocks1.glb";
+
+/** Decorative rocks from Babylon.js Assets (village pack). */
+async function scatterVillageRocks(scene: Scene, shadowGenerator: ShadowGenerator): Promise<void> {
+    const result = await SceneLoader.ImportMeshAsync("", "", VILLAGE_ROCK_URL, scene);
+    const template = (result.meshes as Mesh[]).find((m) => m.getTotalVertices() > 0);
+    if (!template) {
+        return;
+    }
+    template.setEnabled(false);
+    template.isVisible = false;
+
+    const placements: [number, number, number, number][] = [
+        [-14, 0, 8, 1.15],
+        [16, 0, -6, 0.95],
+        [-6, 0, -15, 1.0],
+        [22, 0, 35, 1.25],
+        [-18, 0, 38, 1.05],
+        [10, 0, 48, 0.9],
+        [-3, 0, 22, 0.75],
+    ];
+
+    for (let i = 0; i < placements.length; i++) {
+        const [x, y, z, s] = placements[i];
+        const rock = template.clone(`scatterRock_${i}`, null);
+        if (!rock) continue;
+        rock.setEnabled(true);
+        rock.isVisible = true;
+        rock.position.set(x, y, z);
+        rock.rotation.y = (i * 1.7) % (Math.PI * 2);
+        rock.scaling.setAll(s);
+        rock.receiveShadows = true;
+        shadowGenerator.addShadowCaster(rock);
+        new PhysicsAggregate(rock, PhysicsShapeType.MESH, { mass: 0 }, scene);
     }
 }
 

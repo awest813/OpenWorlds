@@ -10,6 +10,13 @@ import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugi
 import { ReflectionProbe } from "@babylonjs/core/Probes/reflectionProbe";
 import { SkyMaterial } from "@babylonjs/materials";
 
+import {
+    applyStylizedSceneAtmosphere,
+    attachStylizedRenderingPipeline,
+    bindOutdoorEnvironment,
+    createRockyTerrainMaterial,
+} from "../rendering/StylizedLook";
+
 import { InputManager } from "../game/input/InputManager";
 import { PlayerController } from "../game/player/PlayerController";
 import {
@@ -40,21 +47,36 @@ export interface ArenaSceneContext {
 
 /** Sets up the test arena: ground, lighting, sky, player, and three enemy archetypes. */
 export async function createArenaScene(scene: Scene, input: InputManager): Promise<ArenaSceneContext> {
-    // --- Lighting ---
-    const sun = new DirectionalLight("light", new Vector3(-5, -10, 5).normalize(), scene);
-    sun.position = sun.direction.negate().scaleInPlace(40);
+    applyStylizedSceneAtmosphere(scene);
 
-    const shadowGenerator = new ShadowGenerator(1024, sun);
-    shadowGenerator.useExponentialShadowMap = true;
+    // --- Lighting ---
+    const sun = new DirectionalLight("light", new Vector3(-4.5, -9, 4).normalize(), scene);
+    sun.position = sun.direction.negate().scaleInPlace(55);
+    sun.diffuse = new Color3(1.0, 0.93, 0.8);
+    sun.intensity = 1.25;
+
+    const shadowGenerator = new ShadowGenerator(2048, sun);
+    shadowGenerator.usePercentageCloserFiltering = true;
+    shadowGenerator.filteringQuality = ShadowGenerator.QUALITY_HIGH;
+    shadowGenerator.bias = 0.0008;
+    shadowGenerator.normalBias = 0.02;
+    shadowGenerator.darkness = 0.35;
 
     const hemiLight = new HemisphericLight("hemi", Vector3.Up(), scene);
-    hemiLight.intensity = 0.4;
+    hemiLight.diffuse = new Color3(0.52, 0.58, 0.78);
+    hemiLight.groundColor = new Color3(0.2, 0.18, 0.16);
+    hemiLight.intensity = 0.48;
 
     // --- Sky ---
     const skyMaterial = new SkyMaterial("skyMaterial", scene);
     skyMaterial.backFaceCulling = false;
     skyMaterial.useSunPosition = true;
     skyMaterial.sunPosition = sun.direction.negate();
+    skyMaterial.luminance = 0.82;
+    skyMaterial.turbidity = 3.8;
+    skyMaterial.rayleigh = 1.3;
+    skyMaterial.mieCoefficient = 0.004;
+    skyMaterial.mieDirectionalG = 0.72;
 
     const skybox = MeshBuilder.CreateBox("skyBox", { size: 100.0 }, scene);
     skybox.material = skyMaterial;
@@ -64,16 +86,30 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
     scene.environmentTexture = rp.cubeTexture;
 
     // --- Ground ---
-    const groundMaterial = new PBRMetallicRoughnessMaterial("groundMat", scene);
+    const groundMaterial = createRockyTerrainMaterial("groundMat", scene, {
+        uScale: 18,
+        vScale: 18,
+        baseTint: new Color3(0.55, 0.52, 0.48),
+    });
+    bindOutdoorEnvironment(groundMaterial, scene);
     const ground = MeshBuilder.CreateGround("ground", { width: 100, height: 100 });
     ground.material = groundMaterial;
     ground.receiveShadows = true;
     new PhysicsAggregate(ground, PhysicsShapeType.BOX, { mass: 0 }, scene);
 
     // --- Physics demo boxes ---
+    const boxTints = [
+        new Color3(0.62, 0.22, 0.18),
+        new Color3(0.35, 0.42, 0.55),
+        new Color3(0.48, 0.38, 0.28),
+        new Color3(0.28, 0.45, 0.32),
+    ];
     for (let i = 0; i < 4; i++) {
-        const boxMaterial = new PBRMetallicRoughnessMaterial("boxMaterial", scene);
-        boxMaterial.baseColor = Color3.Random();
+        const boxMaterial = new PBRMetallicRoughnessMaterial(`boxMaterial_${i}`, scene);
+        boxMaterial.baseColor = boxTints[i];
+        boxMaterial.metallic = 0.08;
+        boxMaterial.roughness = 0.82;
+        bindOutdoorEnvironment(boxMaterial, scene);
         const box = MeshBuilder.CreateBox("Box", { size: 1 }, scene);
         box.material = boxMaterial;
         shadowGenerator.addShadowCaster(box);
@@ -86,6 +122,8 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
     const player = await PlayerController.CreateAsync(scene, input);
     player.getTransform().position.y = 3;
     shadowGenerator.addShadowCaster(player.model);
+
+    attachStylizedRenderingPipeline(scene, player.camera.camera);
 
     // --- Enemies (three archetypes) ---
     // Enemy positions are spread around the arena so each archetype's
