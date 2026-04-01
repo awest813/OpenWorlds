@@ -6,6 +6,8 @@ import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 export class ThirdPersonCamera {
     readonly camera: ArcRotateCamera;
     private readonly attachPoint: TransformNode;
+    private readonly pointerLockCanvas: HTMLCanvasElement | null;
+    private readonly pointerLockCleanup: (() => void) | null;
 
     constructor(scene: Scene, target: TransformNode) {
         this.attachPoint = new TransformNode("cameraAttachPoint", scene);
@@ -18,6 +20,27 @@ export class ThirdPersonCamera {
         this.camera.wheelPrecision = 200;
         this.camera.lowerRadiusLimit = 3;
         this.camera.upperBetaLimit = Math.PI / 2 + 0.2;
+
+        const canvas = scene.getEngine().getRenderingCanvas();
+        this.pointerLockCanvas = canvas ?? null;
+        if (canvas) {
+            const onCanvasClick = () => {
+                void canvas.requestPointerLock();
+            };
+            const onKeyDown = (e: KeyboardEvent) => {
+                if (e.key === "Escape" && document.pointerLockElement === canvas) {
+                    document.exitPointerLock();
+                }
+            };
+            canvas.addEventListener("click", onCanvasClick);
+            document.addEventListener("keydown", onKeyDown);
+            this.pointerLockCleanup = () => {
+                canvas.removeEventListener("click", onCanvasClick);
+                document.removeEventListener("keydown", onKeyDown);
+            };
+        } else {
+            this.pointerLockCleanup = null;
+        }
     }
 
     getForwardOnGround(): Vector3 {
@@ -26,6 +49,11 @@ export class ThirdPersonCamera {
     }
 
     dispose(): void {
+        const c = this.pointerLockCanvas;
+        if (c && document.pointerLockElement === c) {
+            document.exitPointerLock();
+        }
+        this.pointerLockCleanup?.();
         this.attachPoint.dispose();
         this.camera.dispose();
     }
