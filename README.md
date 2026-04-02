@@ -68,7 +68,18 @@ npm run format
 
 ## Related Babylon.js RPGs
 
-If you want another take on browser action RPGs in Babylon.js, [**hdevx/3D-Action-RPG-JavaScript**](https://github.com/hdevx/3D-Action-RPG-JavaScript) is worth a look: vanilla JavaScript (no bundler), a **scene manager** for switching levels, terrain and animation examples, and an **in-game level builder**. You can [play the hosted demo](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=outdoor) and switch scenes with query params such as [`?scene=inn`](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=inn), [`?scene=outdoor`](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=outdoor), or [`?scene=builder`](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=builder). Append [`&debug=true`](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=outdoor&debug=true) to open a scene inspector.
+Curated pointers if you want a different starting point or reference implementation:
+
+| Focus | Repo | Notes |
+| --- | --- | --- |
+| **Direct ARPG-style** | [**hdevx/3D-Action-RPG-JavaScript**](https://github.com/hdevx/3D-Action-RPG-JavaScript) | “Action RPG Example for Babylon.js”: movement, physics, terrain, scene loading, animation, scene manager, browser demo. Vanilla JS (no bundler), **scene manager**, terrain/animation examples, **in-game level builder**. [Hosted demo](https://www.rpgskilltreegenerator.com/RPG/index.html?scene=outdoor) — try `?scene=inn`, `?scene=outdoor`, `?scene=builder`; add `&debug=true` for the scene inspector. |
+| **Third-person starter** | [**BarthPaleologue/ThirdPersonTemplate**](https://github.com/BarthPaleologue/ThirdPersonTemplate) | Not a full RPG; solid base for your own combat, quests, loot, and UI. Third-person controller, physics, Babylon.js project setup. |
+| **Multiplayer ARPG-ish** | [**orion3dgames/t5c**](https://github.com/orion3dgames/t5c) | Multiplayer top-down RPG with Babylon.js and Colyseus: click-to-move, client prediction / server reconciliation, map changes, animated characters, chat, navmesh collision. Strong if you want Diablo / PSO-lite style online. |
+| **Official game code** | [**BabylonJS/SpacePirates**](https://github.com/BabylonJS/SpacePirates) | Playable official demo game: assets, build steps, useful for scene organization and production-ish patterns (not a full action RPG). |
+| **Official tutorial game** | [**BabylonJS/SummerFestival**](https://github.com/BabylonJS/SummerFestival) | Tutorial-oriented repo with assets and material; movement and dash controls; art/music licensing notes help if you learn or remix carefully. |
+| **More discovery** | [**Symbitic/awesome-babylonjs**](https://github.com/Symbitic/awesome-babylonjs) | Curated list: demos, games, projects, examples — good once you know third-person melee vs top-down click-to-move vs multiplayer. |
+
+**Rough picks by goal:** single-player Fable / Dark Cloud / Kingdom Hearts–lite prototype → start from **ThirdPersonTemplate**. A more ready-made ARPG example → fork **3D-Action-RPG-JavaScript** first. Online / lobby / zone-based action RPG → study or fork **t5c**.
 
 ## Tech Stack
 
