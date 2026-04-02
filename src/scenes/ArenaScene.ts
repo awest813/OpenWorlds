@@ -31,6 +31,7 @@ import { CombatHUD } from "../game/ui/CombatHUD";
 import { EncounterManager } from "../game/encounter/EncounterManager";
 import { PlayerProgression } from "../game/progression/PlayerProgression";
 import { PlayerBuild } from "../game/progression/PlayerBuild";
+import { CombatAudio } from "../game/audio/CombatAudio";
 import { LOOT_TABLE_ARENA_SPARRING } from "../game/loot/LootTables";
 
 export interface ArenaSceneContext {
@@ -130,12 +131,14 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
 
     // --- Target system + combat controller (before enemies for dodge i-frame wiring) ---
     const targetSystem = new TargetSystem(scene, player.getTransform());
+    const combatAudio = new CombatAudio(scene);
     const combatController = new CombatController(
         player.getTransform(),
         player.physicsAggregate,
         input,
         targetSystem,
-        playerBuild
+        playerBuild,
+        combatAudio
     );
     player.combatController = combatController;
 

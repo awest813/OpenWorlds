@@ -3,6 +3,7 @@ import { Vector3, Quaternion } from "@babylonjs/core/Maths/math.vector";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
 
 import { InputManager } from "../input/InputManager";
+import { CombatAudio } from "../audio/CombatAudio";
 import { TargetSystem } from "./TargetSystem";
 import { DashStrikeAbility, SpinSlashAbility } from "./AbilitySystem";
 import { EnemyController } from "./EnemyController";
@@ -64,19 +65,22 @@ export class CombatController {
     private readonly input: InputManager;
     private readonly targeting: TargetSystem;
     private readonly combatStats: PlayerCombatStats | null;
+    private readonly audio: CombatAudio | null;
 
     constructor(
         playerTransform: TransformNode,
         playerPhysics: PhysicsAggregate,
         input: InputManager,
         targeting: TargetSystem,
-        combatStats?: PlayerCombatStats | null
+        combatStats?: PlayerCombatStats | null,
+        audio?: CombatAudio | null
     ) {
         this.transform = playerTransform;
         this.physics = playerPhysics;
         this.input = input;
         this.targeting = targeting;
         this.combatStats = combatStats ?? null;
+        this.audio = audio ?? null;
     }
 
     // ── Public state queries ───────────────────────────────────────────────
@@ -200,10 +204,14 @@ export class CombatController {
                 hit.takeHit(Math.max(1, Math.round(base * mult)));
                 this.hitDealt = true;
                 this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
+                this.audio?.playMeleeHit(this.comboStep);
             }
         }
 
         if (this.phaseTimer <= 0) {
+            if (!this.hitDealt) {
+                this.audio?.playMeleeWhiff();
+            }
             this.phase = CombatPhase.Lockout;
             this.phaseTimer = COMBAT_CONFIG.COMBO_LOCKOUT_DURATION;
             this.chainPressed = false;
@@ -256,6 +264,7 @@ export class CombatController {
         this.dodgeInvulnTimer = COMBAT_CONFIG.DODGE_IFRAME_DURATION;
         // Dash in the player's current facing direction
         this.dodgeDir = this.getForward();
+        this.audio?.playDodge();
     }
 
     private tickDodging(dt: number): void {
@@ -275,6 +284,7 @@ export class CombatController {
         this.activeAbilityId = "dash_strike";
         this.dashStrike.activate();
         this.faceTarget();
+        this.audio?.playDashStrike();
     }
 
     private tickDashStrike(dt: number): void {
@@ -288,6 +298,7 @@ export class CombatController {
                 const mult = this.combatStats?.getDashStrikeDamageMultiplier() ?? 1;
                 hit.takeHit(Math.max(1, Math.round(COMBAT_CONFIG.ABILITY_DASH_STRIKE_DAMAGE * mult)));
                 this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
+                this.audio?.playMeleeHit(2);
             }
             this.hitDealt = true;
         }
@@ -307,6 +318,7 @@ export class CombatController {
         this.hitDealt = false;
         this.activeAbilityId = "spin_slash";
         this.spinSlash.activate();
+        this.audio?.playSpinSlash();
     }
 
     private tickSpinSlash(dt: number): void {
@@ -334,6 +346,7 @@ export class CombatController {
             }
             if (hitAny) {
                 this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
+                this.audio?.playMeleeHit(1);
             }
             this.hitDealt = true;
         }
