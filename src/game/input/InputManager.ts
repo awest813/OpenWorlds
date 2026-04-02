@@ -16,7 +16,9 @@ export class InputManager {
 
         window.addEventListener("keydown", (e) => {
             // Prevent browser defaults for game-reserved keys
-            if ([" ", "f", "e", "j", "t", "Tab", "c", "C", "q", "Q", "h", "H"].includes(e.key)) {
+            if (
+                [" ", "f", "e", "j", "t", "Tab", "c", "C", "q", "Q", "h", "H", "Shift", "Control"].includes(e.key)
+            ) {
                 e.preventDefault();
             }
             if (e.key >= "1" && e.key <= "9") e.preventDefault();

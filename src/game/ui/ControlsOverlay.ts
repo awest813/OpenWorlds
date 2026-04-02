@@ -43,6 +43,8 @@ export class ControlsOverlay {
 
         const rows: [string, string][] = [
             ["W A S D", "Move"],
+            ["Shift (hold)", "Sprint"],
+            ["Ctrl (hold)", "Walk"],
             ["Mouse", "Camera look"],
             ["J / LMB", "Attack"],
             ["Space", "Dodge"],
