@@ -39,6 +39,8 @@ export class PlayerController {
     readonly physicsAggregate: PhysicsAggregate;
 
     readonly moveSpeed = 1.8;
+    private readonly sprintMultiplier = 2.15;
+    private readonly walkMultiplier = 0.55;
     readonly rotationSpeed = 6;
     readonly animationBlendSpeed = 4.0;
 
@@ -146,12 +148,19 @@ export class PlayerController {
         if (fwd || bwd || lft || rgt) {
             this.targetAnim = this.walkAnim;
 
+            let speedMul = 1;
+            if (this.input.isKeyDown("Shift")) {
+                speedMul = this.sprintMultiplier;
+            } else if (this.input.isKeyDown("Control")) {
+                speedMul = this.walkMultiplier;
+            }
+
             const impostorQuaternion = this.impostorMesh.rotationQuaternion;
             if (impostorQuaternion === null) {
                 throw new Error("Impostor quaternion is null");
             }
             Quaternion.SlerpToRef(impostorQuaternion, rot, this.rotationSpeed * deltaSeconds, impostorQuaternion);
-            this.impostorMesh.translate(new Vector3(0, 0, -1), this.moveSpeed * deltaSeconds);
+            this.impostorMesh.translate(new Vector3(0, 0, -1), this.moveSpeed * speedMul * deltaSeconds);
             this.physicsAggregate.body.setTargetTransform(this.impostorMesh.absolutePosition, impostorQuaternion);
         }
 

@@ -7,7 +7,7 @@ It includes real-time combat, enemy archetypes, NPC interactions, dialogue, and 
 
 ## Features
 
-- Third-person player controller with camera-relative movement and optional pointer lock (click the game canvas; Esc to release)
+- Third-person player controller with camera-relative movement, sprint (Shift) and walk (Ctrl), and optional pointer lock (click the game canvas; Esc to release)
 - Action combat with:
   - 3-hit melee combo
   - Dodge roll
@@ -15,12 +15,15 @@ It includes real-time combat, enemy archetypes, NPC interactions, dialogue, and 
   - Spin Slash ability
   - Target cycling
 - Enemy AI archetypes (melee chaser, heavy bruiser, ranged caster)
+- Hub dressing with glTF props from [Babylon.js Assets](https://github.com/BabylonJS/Assets) (barrels, crates, fence, rocks) via the official CDN
 - NPC interaction and dialogue system
 - Quest state + objective tracking HUD
 
 ## Controls
 
 - `W A S D` — Move
+- `Shift` (hold) — Sprint
+- `Ctrl` (hold) — Walk
 - `Mouse` — Camera look
 - `J` or `Left Click` — Attack
 - `Space` — Dodge

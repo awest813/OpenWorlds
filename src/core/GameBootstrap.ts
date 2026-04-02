@@ -1,6 +1,8 @@
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Scene } from "@babylonjs/core/scene";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import "@babylonjs/core/Physics/joinedPhysicsEngineComponent";
+import "@babylonjs/core/Physics/v2/physicsEngineComponent";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { PhysicsViewer } from "@babylonjs/core/Debug/physicsViewer";
 import { Tools } from "@babylonjs/core/Misc/tools";
@@ -104,10 +106,10 @@ export class GameBootstrap {
                 if (npc !== null) {
                     ctx.handleInteraction(npc);
                 } else {
-                    const questId = ctx.gatherableManager.tryPickup(playerPos, this.input);
-                    if (questId !== null) {
-                        ctx.questManager.recordGather(questId);
-                        ctx.questHud.showNotification("Gathered: bitterleaf", 2.0);
+                    const pickup = ctx.gatherableManager.tryPickup(playerPos, this.input);
+                    if (pickup !== null) {
+                        ctx.questManager.recordGather(pickup.questId);
+                        ctx.questHud.showNotification(`Gathered: ${pickup.pickupToastLabel}`, 2.0);
                     }
                 }
             }
