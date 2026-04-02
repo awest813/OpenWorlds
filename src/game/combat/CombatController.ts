@@ -48,6 +48,8 @@ export class CombatController {
     /** Set to true when attack input arrives during the Lockout phase. */
     private chainPressed = false;
     private dodgeCooldown = 0;
+    /** Seconds remaining in which enemy melee and projectiles deal no damage (dodge roll). */
+    private dodgeInvulnTimer = 0;
     private dodgeDir = Vector3.Zero();
     /** Which ability is currently executing ("dash_strike" | "spin_slash"). */
     private activeAbilityId: string | null = null;
@@ -109,6 +111,11 @@ export class CombatController {
         return this.hitPauseTimer > 0;
     }
 
+    /** True while dodge i-frames are active; enemy attacks should not damage the player. */
+    isDamageInvulnerable(): boolean {
+        return this.dodgeInvulnTimer > 0;
+    }
+
     // ── Per-frame update ───────────────────────────────────────────────────
 
     update(dt: number): void {
@@ -117,6 +124,9 @@ export class CombatController {
         this.spinSlash.update(dt);
         if (this.dodgeCooldown > 0) {
             this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
+        }
+        if (this.dodgeInvulnTimer > 0) {
+            this.dodgeInvulnTimer = Math.max(0, this.dodgeInvulnTimer - dt);
         }
 
         // Target acquisition / cycling (F or Tab)
@@ -243,6 +253,7 @@ export class CombatController {
         this.phase = CombatPhase.Dodging;
         this.phaseTimer = COMBAT_CONFIG.DODGE_DURATION;
         this.dodgeCooldown = this.combatStats?.getDodgeCooldownSeconds() ?? COMBAT_CONFIG.DODGE_COOLDOWN;
+        this.dodgeInvulnTimer = COMBAT_CONFIG.DODGE_IFRAME_DURATION;
         // Dash in the player's current facing direction
         this.dodgeDir = this.getForward();
     }

@@ -125,25 +125,11 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
 
     attachStylizedRenderingPipeline(scene, player.camera.camera);
 
-    // --- Enemies (three archetypes) ---
-    // Enemy positions are spread around the arena so each archetype's
-    // behaviour is clear: Chaser rushes in, Bruiser lumbers forward,
-    // Caster hangs back and fires.
-    const enemies: EnemyController[] = [
-        new EnemyController(scene, new Vector3(-4, 1, 8), ARCHETYPE_MELEE_CHASER, player.getTransform(), player.health),
-        new EnemyController(scene, new Vector3(4, 1, 10), ARCHETYPE_HEAVY_BRUISER, player.getTransform(), player.health),
-        new EnemyController(scene, new Vector3(0, 1, 15), ARCHETYPE_RANGED_CASTER, player.getTransform(), player.health),
-    ];
-    enemies.forEach((e) => shadowGenerator.addShadowCaster(e.mesh));
-
-    // --- Target system ---
-    const targetSystem = new TargetSystem(scene, player.getTransform());
-    enemies.forEach((e) => targetSystem.register(e));
-
     const playerProgression = new PlayerProgression(player.health);
     const playerBuild = new PlayerBuild(player.health, playerProgression);
 
-    // --- Combat controller ---
+    // --- Target system + combat controller (before enemies for dodge i-frame wiring) ---
+    const targetSystem = new TargetSystem(scene, player.getTransform());
     const combatController = new CombatController(
         player.getTransform(),
         player.physicsAggregate,
@@ -152,6 +138,41 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
         playerBuild
     );
     player.combatController = combatController;
+
+    const invuln = () => combatController.isDamageInvulnerable();
+
+    // --- Enemies (three archetypes) ---
+    // Enemy positions are spread around the arena so each archetype's
+    // behaviour is clear: Chaser rushes in, Bruiser lumbers forward,
+    // Caster hangs back and fires.
+    const enemies: EnemyController[] = [
+        new EnemyController(
+            scene,
+            new Vector3(-4, 1, 8),
+            ARCHETYPE_MELEE_CHASER,
+            player.getTransform(),
+            player.health,
+            invuln
+        ),
+        new EnemyController(
+            scene,
+            new Vector3(4, 1, 10),
+            ARCHETYPE_HEAVY_BRUISER,
+            player.getTransform(),
+            player.health,
+            invuln
+        ),
+        new EnemyController(
+            scene,
+            new Vector3(0, 1, 15),
+            ARCHETYPE_RANGED_CASTER,
+            player.getTransform(),
+            player.health,
+            invuln
+        ),
+    ];
+    enemies.forEach((e) => shadowGenerator.addShadowCaster(e.mesh));
+    enemies.forEach((e) => targetSystem.register(e));
 
     // --- Encounter manager (XP + loot table) ---
     const encounterManager = new EncounterManager(enemies, {
