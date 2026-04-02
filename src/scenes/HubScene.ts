@@ -56,6 +56,7 @@ import { QuestHUD } from "../game/ui/QuestHUD";
 import { GatherableManager } from "../game/world/GatherableManager";
 import { PlayerProgression } from "../game/progression/PlayerProgression";
 import { PlayerBuild } from "../game/progression/PlayerBuild";
+import { CombatAudio } from "../game/audio/CombatAudio";
 import { LOOT_TABLE_SCOUT_ENCOUNTER } from "../game/loot/LootTables";
 
 export interface HubSceneContext {
@@ -199,12 +200,14 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
 
     // ── Target system + combat controller (before enemies so dodge i-frames can wire in) ──
     const targetSystem = new TargetSystem(scene, player.getTransform());
+    const combatAudio = new CombatAudio(scene);
     const combatController = new CombatController(
         player.getTransform(),
         player.physicsAggregate,
         input,
         targetSystem,
-        playerBuild
+        playerBuild,
+        combatAudio
     );
     player.combatController = combatController;
 
