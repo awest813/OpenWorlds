@@ -1,49 +1,76 @@
 import { getItemDef } from "../loot/ItemDefinitions";
 import { PlayerBuild } from "../progression/PlayerBuild";
+import { createKeycap, createMenuSurface, MenuSurface } from "./MenuTheme";
 
 /**
  * A toggleable inventory panel (press I).
  * Shows current gold balance and all non-zero item stacks.
  */
 export class InventoryHUD {
-    private readonly panel: HTMLDivElement;
+    private readonly surface: MenuSurface;
+    private readonly summary: HTMLDivElement;
+    private readonly itemsList: HTMLDivElement;
     private visible = false;
 
     constructor() {
-        this.panel = InventoryHUD.el("div", {
-            position: "fixed",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "rgba(0,0,0,0.88)",
-            border: "1px solid rgba(220,190,80,0.6)",
-            borderRadius: "8px",
-            padding: "18px 28px",
-            minWidth: "260px",
-            fontFamily: "monospace",
-            fontSize: "13px",
-            color: "#fff",
-            userSelect: "none",
-            zIndex: "20",
-            display: "none",
-            pointerEvents: "none",
+        this.surface = createMenuSurface({
+            title: "Inventory",
+            subtitle: "Pack contents and currency",
+            tone: "gold",
+            zIndex: 30,
+            width: "min(460px, calc(100vw - 36px))",
+            maxHeight: "min(560px, calc(100vh - 42px))",
+            onCloseRequest: () => this.hide(),
         });
-        document.body.appendChild(this.panel);
+        this.surface.panel.setAttribute("aria-label", "Inventory");
+        this.surface.body.style.padding = "12px 14px 14px";
+        this.surface.body.style.display = "flex";
+        this.surface.body.style.flexDirection = "column";
+        this.surface.body.style.gap = "10px";
+
+        this.summary = InventoryHUD.el("div", {
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            border: "1px solid rgba(255,255,255,0.12)",
+            borderRadius: "10px",
+            background: "rgba(255,255,255,0.04)",
+            padding: "9px 10px",
+            color: this.surface.tone.bodyText,
+            fontSize: "12px",
+        });
+
+        this.itemsList = InventoryHUD.el("div", {
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
+        });
+
+        this.surface.body.appendChild(this.summary);
+        this.surface.body.appendChild(this.itemsList);
+
+        this.surface.footer.style.display = "flex";
+        this.surface.footer.textContent = "";
+        this.surface.footer.appendChild(createKeycap("I", "gold"));
+        const closeHint = InventoryHUD.el("span");
+        closeHint.textContent = "Close";
+        this.surface.footer.appendChild(closeHint);
     }
 
     toggle(build: PlayerBuild): void {
         this.visible = !this.visible;
         if (this.visible) {
             this.render(build);
-            this.panel.style.display = "";
+            this.surface.setVisible(true);
         } else {
-            this.panel.style.display = "none";
+            this.surface.setVisible(false);
         }
     }
 
     hide(): void {
         this.visible = false;
-        this.panel.style.display = "none";
+        this.surface.setVisible(false);
     }
 
     isVisible(): boolean {
@@ -51,31 +78,61 @@ export class InventoryHUD {
     }
 
     dispose(): void {
-        this.panel.remove();
+        this.surface.root.remove();
     }
 
     private render(build: PlayerBuild): void {
-        const parts: string[] = [
-            `<div style="color:#888;font-size:10px;letter-spacing:1px;margin-bottom:10px">INVENTORY</div>`,
-            `<div style="color:#FFD700;margin-bottom:8px">&#9654; Gold: ${build.getGold()}</div>`,
-        ];
+        this.summary.replaceChildren();
+        const goldLabel = InventoryHUD.el("span", { color: this.surface.tone.subtitle });
+        goldLabel.textContent = "Gold";
+        const goldValue = InventoryHUD.el("span", {
+            color: this.surface.tone.accent,
+            fontWeight: "bold",
+            fontSize: "13px",
+        });
+        goldValue.textContent = build.getGold().toString();
+        this.summary.appendChild(goldLabel);
+        this.summary.appendChild(goldValue);
 
+        this.itemsList.replaceChildren();
         const entries = build.getInventoryEntries();
         if (entries.length === 0) {
-            parts.push(`<div style="color:#555;font-style:italic">No items collected yet.</div>`);
+            const empty = InventoryHUD.el("div", {
+                color: this.surface.tone.mutedText,
+                fontStyle: "italic",
+                border: "1px dashed rgba(255,255,255,0.2)",
+                borderRadius: "8px",
+                padding: "12px",
+                textAlign: "center",
+            });
+            empty.textContent = "No items collected yet.";
+            this.itemsList.appendChild(empty);
         } else {
             for (const { itemId, count } of entries) {
                 const def = getItemDef(itemId);
-                parts.push(
-                    `<div style="margin-bottom:4px">${def.displayName} <span style="color:#aaa">×${count}</span></div>`
-                );
+                const row = InventoryHUD.el("div", {
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "8px",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "8px",
+                    background: "rgba(255,255,255,0.03)",
+                    padding: "8px 10px",
+                });
+                const name = InventoryHUD.el("span", { color: this.surface.tone.bodyText });
+                name.textContent = def.displayName;
+                const qty = InventoryHUD.el("span", {
+                    color: this.surface.tone.subtitle,
+                    fontWeight: "bold",
+                    fontSize: "11px",
+                });
+                qty.textContent = `x${count}`;
+                row.appendChild(name);
+                row.appendChild(qty);
+                this.itemsList.appendChild(row);
             }
         }
-
-        parts.push(
-            `<div style="color:#555;font-size:10px;margin-top:12px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px">[ I ] close</div>`
-        );
-        this.panel.innerHTML = parts.join("");
     }
 
     private static el<K extends keyof HTMLElementTagNameMap>(
