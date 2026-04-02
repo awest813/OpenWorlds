@@ -13,6 +13,7 @@ import { createHubScene, HubSceneContext } from "../scenes/HubScene";
 import { ControlsOverlay } from "../game/ui/ControlsOverlay";
 import { InventoryHUD } from "../game/ui/InventoryHUD";
 import { SkillTreePanel } from "../game/ui/SkillTreePanel";
+import { TargetReticleOverlay } from "../game/ui/TargetReticleOverlay";
 
 /**
  * GameBootstrap owns the engine, scene, and top-level game loop.
@@ -29,6 +30,7 @@ export class GameBootstrap {
     private readonly controlsOverlay: ControlsOverlay;
     private readonly inventoryHud: InventoryHUD;
     private readonly skillTreePanel: SkillTreePanel;
+    private readonly targetReticle: TargetReticleOverlay;
 
     private constructor(
         engine: Engine,
@@ -38,7 +40,8 @@ export class GameBootstrap {
         canvas: HTMLCanvasElement,
         controlsOverlay: ControlsOverlay,
         inventoryHud: InventoryHUD,
-        skillTreePanel: SkillTreePanel
+        skillTreePanel: SkillTreePanel,
+        targetReticle: TargetReticleOverlay
     ) {
         this.engine = engine;
         this.scene = scene;
@@ -48,6 +51,7 @@ export class GameBootstrap {
         this.controlsOverlay = controlsOverlay;
         this.inventoryHud = inventoryHud;
         this.skillTreePanel = skillTreePanel;
+        this.targetReticle = targetReticle;
         this.physicsViewer = new PhysicsViewer(scene);
     }
 
@@ -66,6 +70,7 @@ export class GameBootstrap {
         const controlsOverlay = new ControlsOverlay();
         const inventoryHud = new InventoryHUD();
         const skillTreePanel = new SkillTreePanel();
+        const targetReticle = new TargetReticleOverlay(engine, scene);
 
         const boot = new GameBootstrap(
             engine,
@@ -75,7 +80,8 @@ export class GameBootstrap {
             canvas,
             controlsOverlay,
             inventoryHud,
-            skillTreePanel
+            skillTreePanel,
+            targetReticle
         );
         boot.bindDebugKeys(canvas);
         boot.startLoop(canvas);
@@ -111,6 +117,7 @@ export class GameBootstrap {
 
         if (ctx.dialogueSystem.isActive()) {
             // Dialogue mode: freeze movement/combat; only process dialogue input
+            this.targetReticle.clear();
             this.inventoryHud.hide();
             this.skillTreePanel.hide();
             ctx.dialogueSystem.update(this.input);
@@ -143,6 +150,7 @@ export class GameBootstrap {
 
             ctx.targetSystem.update(dt);
             ctx.encounterManager.update(dt);
+            this.targetReticle.update(ctx.targetSystem);
         }
 
         // HUD updates always run so panels stay visible during dialogue

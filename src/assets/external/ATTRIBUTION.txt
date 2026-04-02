@@ -1,0 +1,11 @@
+Bundled reference assets (see user-facing README or project docs for gameplay context):
+
+1) BabylonJS/SpacePirates — https://github.com/BabylonJS/SpacePirates
+   - spacepirates/asteroid_V1.glb
+   - spacepirates/targetlock.png
+
+2) hdevx/3D-Action-RPG-JavaScript — https://github.com/hdevx/3D-Action-RPG-JavaScript
+   - rpg/grass.png
+   - rpg/grass.glb
+
+Verify each upstream repository’s license before redistributing or modifying for production.

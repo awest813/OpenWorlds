@@ -85,6 +85,11 @@ export interface TiledTerrainMaterialOptions {
     /** Multiplies albedo when textures load (tint). */
     baseTint?: Color3;
     envTexture?: BaseTexture | null;
+    /**
+     * Override albedo URL (full URL or path). Default: Babylon Assets valleygrass.
+     * Used for bundled terrain art (e.g. hdevx/3D-Action-RPG-JavaScript grass.png).
+     */
+    albedoTextureUrl?: string;
 }
 
 /**
@@ -127,7 +132,13 @@ export function createGrassTerrainMaterial(
     scene: Scene,
     options: TiledTerrainMaterialOptions = {}
 ): PBRMetallicRoughnessMaterial {
-    const { uScale = 10, vScale = 10, baseTint = new Color3(0.92, 0.98, 0.88), envTexture = null } = options;
+    const {
+        uScale = 10,
+        vScale = 10,
+        baseTint = new Color3(0.92, 0.98, 0.88),
+        envTexture = null,
+        albedoTextureUrl,
+    } = options;
     const mat = new PBRMetallicRoughnessMaterial(name, scene);
     mat.metallic = 1;
     mat.roughness = 1;
@@ -135,7 +146,8 @@ export function createGrassTerrainMaterial(
 
     const noMipmap = false;
     const invertY = true;
-    mat.baseTexture = new Texture(textureUrl("valleygrass.png"), scene, noMipmap, invertY);
+    const albedoSrc = albedoTextureUrl ?? textureUrl("valleygrass.png");
+    mat.baseTexture = new Texture(albedoSrc, scene, noMipmap, invertY);
     setTextureTiling(mat.baseTexture, uScale, vScale);
 
     mat.metallicRoughnessTexture = new Texture(textureUrl("rockyGround_metalRough.png"), scene, noMipmap, invertY);

@@ -59,6 +59,10 @@ import { PlayerBuild } from "../game/progression/PlayerBuild";
 import { CombatAudio } from "../game/audio/CombatAudio";
 import { LOOT_TABLE_SCOUT_ENCOUNTER } from "../game/loot/LootTables";
 
+import grassTerrainAlbedo from "../assets/external/rpg/grass.png";
+import grassClumpGlb from "../assets/external/rpg/grass.glb";
+import spaceRockGlb from "../assets/external/spacepirates/asteroid_V1.glb";
+
 export interface HubSceneContext {
     player: PlayerController;
     enemies: EnemyController[];
@@ -175,6 +179,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
         uScale: 14,
         vScale: 14,
         baseTint: new Color3(0.45, 0.52, 0.38),
+        albedoTextureUrl: grassTerrainAlbedo,
     });
     bindOutdoorEnvironment(combatGroundMat, scene);
 
@@ -188,6 +193,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
 
     await scatterVillageRocks(scene, shadowGenerator);
     await placeBabylonAssetsVillageProps(scene, shadowGenerator);
+    await placeExternalReferenceProps(scene, shadowGenerator);
 
     // ── Player ─────────────────────────────────────────────────────────────
     const player = await PlayerController.CreateAsync(scene, input);
@@ -912,6 +918,27 @@ async function placeBabylonAssetsVillageProps(scene: Scene, shadowGenerator: Sha
         { x: -8, y: 0, z: 32, scale: 1.0, rotY: 1.2 },
         { x: 12, y: 0, z: 28, scale: 0.95, rotY: 2.6 },
     ], true);
+}
+
+/**
+ * Props from reference demos (bundled under src/assets/external):
+ * - BabylonJS/SpacePirates: asteroid_V1.glb
+ * - hdevx/3D-Action-RPG-JavaScript: grass.glb (tufts)
+ */
+async function placeExternalReferenceProps(scene: Scene, shadowGenerator: ShadowGenerator): Promise<void> {
+    await scatterClonedGltf(scene, shadowGenerator, spaceRockGlb, "extAsteroid", [
+        { x: -14, y: 0, z: 38, scale: 1.15, rotY: 1.15 },
+        { x: 11, y: 0, z: 44, scale: 0.88, rotY: 2.75 },
+        { x: 4, y: 0, z: 51, scale: 1.02, rotY: 0.42 },
+    ], false);
+
+    await scatterClonedGltf(scene, shadowGenerator, grassClumpGlb, "extGrassTuft", [
+        { x: -6, y: 0, z: 30, scale: 0.48, rotY: 0.2 },
+        { x: 8, y: 0, z: 34, scale: 0.52, rotY: 1.05 },
+        { x: -10, y: 0, z: 42, scale: 0.44, rotY: 2.3 },
+        { x: 14, y: 0, z: 40, scale: 0.5, rotY: 0.9 },
+        { x: 0, y: 0, z: 46, scale: 0.46, rotY: 1.7 },
+    ], false);
 }
 
 /** Decorative rocks from Babylon.js Assets (village pack). */
