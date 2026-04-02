@@ -83,6 +83,9 @@ export class GameBootstrap {
             skillTreePanel,
             targetReticle
         );
+        hubCtx.combatController.onMeleeHitConnect = () => {
+            hubCtx.player.camera.applyCombatPunch(1);
+        };
         boot.bindDebugKeys(canvas);
         boot.startLoop(canvas);
         return boot;
@@ -105,6 +108,8 @@ export class GameBootstrap {
     private update(): void {
         const dt = this.engine.getDeltaTime() / 1000;
         const ctx = this.hubCtx;
+
+        ctx.player.camera.updateCombatFeel(dt);
 
         // NPC pulse animations run regardless of dialogue state
         for (const npc of ctx.npcs) {

@@ -43,11 +43,14 @@ export class PlayerController {
     private readonly walkMultiplier = 0.55;
     readonly rotationSpeed = 6;
     readonly animationBlendSpeed = 4.0;
+    private readonly animSpeedBlendRate = 5.5;
 
     private readonly walkAnim: AnimationGroup;
     private readonly idleAnim: AnimationGroup;
     private readonly nonIdleAnimations: AnimationGroup[];
     private targetAnim: AnimationGroup;
+    /** Smoothed walk clip speed to match sprint / walk modifiers. */
+    private walkSpeedRatio = 1;
 
     private readonly input: InputManager;
     readonly camera: ThirdPersonCamera;
@@ -154,6 +157,8 @@ export class PlayerController {
             } else if (this.input.isKeyDown("Control")) {
                 speedMul = this.walkMultiplier;
             }
+            this.walkSpeedRatio = moveTowards(this.walkSpeedRatio, speedMul, this.animSpeedBlendRate * deltaSeconds);
+            this.walkAnim.speedRatio = this.walkSpeedRatio;
 
             const impostorQuaternion = this.impostorMesh.rotationQuaternion;
             if (impostorQuaternion === null) {
@@ -162,6 +167,9 @@ export class PlayerController {
             Quaternion.SlerpToRef(impostorQuaternion, rot, this.rotationSpeed * deltaSeconds, impostorQuaternion);
             this.impostorMesh.translate(new Vector3(0, 0, -1), this.moveSpeed * speedMul * deltaSeconds);
             this.physicsAggregate.body.setTargetTransform(this.impostorMesh.absolutePosition, impostorQuaternion);
+        } else {
+            this.walkSpeedRatio = moveTowards(this.walkSpeedRatio, 1, this.animSpeedBlendRate * deltaSeconds);
+            this.walkAnim.speedRatio = this.walkSpeedRatio;
         }
 
         this.blendAnimations(deltaSeconds);

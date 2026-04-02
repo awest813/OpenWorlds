@@ -804,6 +804,19 @@ function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void
     fireLight.intensity = 1.8;
     fireLight.range = 14;
 
+    let campfireFlickerT = 0;
+    scene.onBeforeRenderObservable.add(() => {
+        const dt = scene.getEngine().getDeltaTime() / 1000;
+        campfireFlickerT += dt;
+        const wobble =
+            Math.sin(campfireFlickerT * 14.0) * 0.48 + Math.sin(campfireFlickerT * 23.3 + 1.2) * 0.28;
+        fireLight.intensity = 1.65 + wobble * 0.42;
+        const em = 1.0 + wobble * 0.1;
+        fireMat.emissiveColor.set(1.0 * em, 0.45 * em, 0.06 * em);
+        const s = 1 + wobble * 0.055;
+        fire.scaling.setAll(s);
+    });
+
     // ── Rubble / detail stones near NPC ───────────────────────────────────
     const stoneMat = createRockyTerrainMaterial("stoneMat", scene, {
         uScale: 4,
