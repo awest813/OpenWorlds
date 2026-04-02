@@ -141,6 +141,9 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
         combatAudio
     );
     player.combatController = combatController;
+    combatController.onMeleeHitConnect = () => {
+        player.camera.applyCombatPunch(1);
+    };
 
     const invuln = () => combatController.isDamageInvulnerable();
 

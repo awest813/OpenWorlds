@@ -67,6 +67,9 @@ export class CombatController {
     private readonly combatStats: PlayerCombatStats | null;
     private readonly audio: CombatAudio | null;
 
+    /** Optional hook when the player deals melee damage (camera punch, VFX, etc.). */
+    onMeleeHitConnect: (() => void) | null = null;
+
     constructor(
         playerTransform: TransformNode,
         playerPhysics: PhysicsAggregate,
@@ -205,6 +208,7 @@ export class CombatController {
                 this.hitDealt = true;
                 this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
                 this.audio?.playMeleeHit(this.comboStep);
+                this.onMeleeHitConnect?.();
             }
         }
 
@@ -299,6 +303,7 @@ export class CombatController {
                 hit.takeHit(Math.max(1, Math.round(COMBAT_CONFIG.ABILITY_DASH_STRIKE_DAMAGE * mult)));
                 this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
                 this.audio?.playMeleeHit(2);
+                this.onMeleeHitConnect?.();
             }
             this.hitDealt = true;
         }
@@ -347,6 +352,7 @@ export class CombatController {
             if (hitAny) {
                 this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
                 this.audio?.playMeleeHit(1);
+                this.onMeleeHitConnect?.();
             }
             this.hitDealt = true;
         }

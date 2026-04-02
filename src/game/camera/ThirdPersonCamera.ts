@@ -9,6 +9,9 @@ export class ThirdPersonCamera {
     private readonly pointerLockCanvas: HTMLCanvasElement | null;
     private readonly pointerLockCleanup: (() => void) | null;
 
+    /** Decaying upward angular velocity on melee hit (applied to camera beta). */
+    private combatPunchVelocity = 0;
+
     constructor(scene: Scene, target: TransformNode) {
         this.attachPoint = new TransformNode("cameraAttachPoint", scene);
         this.attachPoint.parent = target;
@@ -20,6 +23,7 @@ export class ThirdPersonCamera {
         this.camera.wheelPrecision = 200;
         this.camera.lowerRadiusLimit = 3;
         this.camera.upperBetaLimit = Math.PI / 2 + 0.2;
+        this.camera.inertia = 0.88;
 
         const canvas = scene.getEngine().getRenderingCanvas();
         this.pointerLockCanvas = canvas ?? null;
@@ -46,6 +50,26 @@ export class ThirdPersonCamera {
     getForwardOnGround(): Vector3 {
         const direction = this.camera.getForwardRay().direction;
         return new Vector3(direction.x, 0, direction.z).normalize();
+    }
+
+    /** Call from the main loop; integrates hit-punch velocity into camera beta. */
+    updateCombatFeel(deltaSeconds: number): void {
+        if (Math.abs(this.combatPunchVelocity) < 1e-6) {
+            return;
+        }
+        this.camera.beta += this.combatPunchVelocity * deltaSeconds;
+        const betaCap = this.camera.upperBetaLimit ?? Math.PI / 2 + 0.2;
+        this.camera.beta = Math.min(this.camera.beta, betaCap);
+        this.combatPunchVelocity *= Math.exp(-deltaSeconds * 14);
+        if (Math.abs(this.combatPunchVelocity) < 1e-4) {
+            this.combatPunchVelocity = 0;
+        }
+    }
+
+    /** Brief upward camera kick when the player lands a damaging melee hit. */
+    applyCombatPunch(strength = 1): void {
+        const s = Math.min(Math.max(strength, 0), 2);
+        this.combatPunchVelocity = Math.min(this.combatPunchVelocity + 0.95 * s, 1.6);
     }
 
     dispose(): void {
