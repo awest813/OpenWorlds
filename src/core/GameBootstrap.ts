@@ -9,6 +9,7 @@ import HavokPhysics from "@babylonjs/havok";
 import { InputManager } from "../game/input/InputManager";
 import { createHubScene, HubSceneContext } from "../scenes/HubScene";
 import { ControlsOverlay } from "../game/ui/ControlsOverlay";
+import { InventoryHUD } from "../game/ui/InventoryHUD";
 
 /**
  * GameBootstrap owns the engine, scene, and top-level game loop.
@@ -23,6 +24,7 @@ export class GameBootstrap {
     private bodyShown = false;
     private readonly canvas: HTMLCanvasElement;
     private readonly controlsOverlay: ControlsOverlay;
+    private readonly inventoryHud: InventoryHUD;
 
     private constructor(
         engine: Engine,
@@ -30,7 +32,8 @@ export class GameBootstrap {
         input: InputManager,
         hubCtx: HubSceneContext,
         canvas: HTMLCanvasElement,
-        controlsOverlay: ControlsOverlay
+        controlsOverlay: ControlsOverlay,
+        inventoryHud: InventoryHUD
     ) {
         this.engine = engine;
         this.scene = scene;
@@ -38,6 +41,7 @@ export class GameBootstrap {
         this.hubCtx = hubCtx;
         this.canvas = canvas;
         this.controlsOverlay = controlsOverlay;
+        this.inventoryHud = inventoryHud;
         this.physicsViewer = new PhysicsViewer(scene);
     }
 
@@ -54,8 +58,9 @@ export class GameBootstrap {
         const input = new InputManager(scene);
         const hubCtx = await createHubScene(scene, input);
         const controlsOverlay = new ControlsOverlay();
+        const inventoryHud = new InventoryHUD();
 
-        const boot = new GameBootstrap(engine, scene, input, hubCtx, canvas, controlsOverlay);
+        const boot = new GameBootstrap(engine, scene, input, hubCtx, canvas, controlsOverlay, inventoryHud);
         boot.bindDebugKeys(canvas);
         boot.startLoop(canvas);
         return boot;
@@ -90,6 +95,7 @@ export class GameBootstrap {
 
         if (ctx.dialogueSystem.isActive()) {
             // Dialogue mode: freeze movement/combat; only process dialogue input
+            this.inventoryHud.hide();
             ctx.dialogueSystem.update(this.input);
         } else {
             // NPC talk takes priority over gatherables on the same key (T).
@@ -131,6 +137,10 @@ export class GameBootstrap {
             ctx.playerProgression,
             ctx.playerBuild
         );
+
+            if (this.input.isJustPressed("i") || this.input.isJustPressed("I")) {
+                this.inventoryHud.toggle(ctx.playerBuild);
+            }
 
             if (this.input.isJustPressed("c") || this.input.isJustPressed("C")) {
                 ctx.playerBuild.cycleClass();

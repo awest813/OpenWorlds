@@ -51,6 +51,7 @@ export class ControlsOverlay {
             ["F / Tab", "Cycle target"],
             ["T", "Interact / talk"],
             ["Enter / Space / T", "Advance dialogue"],
+            ["I", "Toggle inventory"],
             ["C", "Cycle class"],
             ["1–9", "Unlock skill (when available)"],
             ["P", "Screenshot"],
