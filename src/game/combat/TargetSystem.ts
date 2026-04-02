@@ -8,6 +8,7 @@ import { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh";
 
 import { EnemyController } from "./EnemyController";
 import { COMBAT_CONFIG } from "./CombatConfig";
+import { findNearestEnemyInForwardCone } from "./targetingHelpers";
 
 /**
  * Manages soft-lock targeting for the player.
@@ -89,22 +90,13 @@ export class TargetSystem {
      * Used by CombatController for untargeted attacks.
      */
     findNearestInRange(from: Vector3, forward: Vector3, range: number): EnemyController | null {
-        const cosHalf = Math.cos((COMBAT_CONFIG.TARGET_FOV_HALF_ANGLE_DEG * Math.PI) / 180);
-        let best: EnemyController | null = null;
-        let bestDist = Infinity;
-
-        for (const e of this.enemies) {
-            if (!e.isAlive()) continue;
-            const toEnemy = e.mesh.getAbsolutePosition().subtract(from);
-            const dist = toEnemy.length();
-            if (dist > range || dist < 0.001) continue;
-            if (Vector3.Dot(toEnemy.normalize(), forward) < cosHalf) continue;
-            if (dist < bestDist) {
-                bestDist = dist;
-                best = e;
-            }
-        }
-        return best;
+        return findNearestEnemyInForwardCone(
+            this.enemies,
+            from,
+            forward,
+            range,
+            COMBAT_CONFIG.TARGET_FOV_HALF_ANGLE_DEG
+        );
     }
 
     update(dt: number): void {

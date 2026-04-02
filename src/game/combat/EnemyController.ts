@@ -292,7 +292,8 @@ export class EnemyController {
             case EnemyAIState.Retreating:
                 // Ranged: back away until we reach preferred distance
                 if (dist > 0.001) {
-                    const awayDir = toPlayer.normalize().negate();
+                    // Clone before normalize — toPlayer is reused below for facing.
+                    const awayDir = toPlayer.clone().normalize().scale(-1);
                     this.mesh.position.addInPlace(awayDir.scale(this.archetype.moveSpeed * dt));
                     this.mesh.position.y = this.spawnPos.y;
                 }

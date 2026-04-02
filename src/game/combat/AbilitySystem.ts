@@ -16,7 +16,8 @@ export interface IAbility {
 /**
  * Starter ability: a short forward dash that deals a burst of damage.
  * Architecture note: additional abilities (AoE, magic burst, etc.) only need
- * to implement IAbility and register themselves with AbilitySystem.
+ * to implement IAbility and be wired from CombatController (or a future
+ * ability bar) the same way Dash Strike and Spin Slash are.
  */
 export class DashStrikeAbility implements IAbility {
     readonly id = "dash_strike";
