@@ -1,107 +1,158 @@
+import { createKeycap, createMenuSurface, MenuSurface } from "./MenuTheme";
+
 /**
  * Toggleable in-game control reference (keyboard + mouse).
  * Kept in sync with README "Controls" section.
  */
 export class ControlsOverlay {
-    private readonly root: HTMLDivElement;
+    private readonly surface: MenuSurface;
     private visible = false;
 
     constructor() {
-        this.root = document.createElement("div");
-        this.root.setAttribute("role", "dialog");
-        this.root.setAttribute("aria-label", "Controls");
-        const s = this.root.style;
-        s.position = "fixed";
-        s.top = "50%";
-        s.left = "50%";
-        s.transform = "translate(-50%, -50%)";
-        s.zIndex = "18";
-        s.display = "none";
-        s.width = "min(420px, calc(100vw - 32px))";
-        s.maxHeight = "min(520px, calc(100vh - 48px))";
-        s.overflow = "auto";
-        s.padding = "18px 22px";
-        s.background = "rgba(8,6,4,0.94)";
-        s.border = "1px solid rgba(220,190,80,0.65)";
-        s.borderRadius = "10px";
-        s.color = "#e8e0d0";
-        s.fontFamily = "monospace";
-        s.fontSize = "13px";
-        s.lineHeight = "1.55";
-        s.boxShadow = "0 8px 32px rgba(0,0,0,0.5)";
+        this.surface = createMenuSurface({
+            title: "Controls",
+            subtitle: "Keyboard and mouse bindings",
+            tone: "gold",
+            zIndex: 28,
+            width: "min(560px, calc(100vw - 34px))",
+            maxHeight: "min(620px, calc(100vh - 42px))",
+            onCloseRequest: () => this.hide(),
+        });
+        this.surface.panel.setAttribute("aria-label", "Controls");
+
+        this.surface.body.style.display = "flex";
+        this.surface.body.style.flexDirection = "column";
+        this.surface.body.style.gap = "7px";
+        this.surface.body.style.padding = "10px 14px 14px";
+
+        const sections: { heading: string; rows: [string, string][] }[] = [
+            {
+                heading: "Movement",
+                rows: [
+                    ["W A S D", "Move"],
+                    ["Shift", "Sprint (hold)"],
+                    ["Ctrl", "Walk (hold)"],
+                    ["Mouse", "Camera look"],
+                    ["Esc", "Release mouse after pointer lock"],
+                ],
+            },
+            {
+                heading: "Combat",
+                rows: [
+                    ["J / LMB", "Attack"],
+                    ["Space", "Dodge"],
+                    ["E", "Dash Strike"],
+                    ["Q", "Spin Slash"],
+                    ["F / Tab", "Cycle target"],
+                ],
+            },
+            {
+                heading: "Interaction & Menus",
+                rows: [
+                    ["T", "Interact / talk"],
+                    ["Enter / Space / T", "Advance dialogue"],
+                    ["I", "Toggle inventory"],
+                    ["K", "Toggle skill tree panel"],
+                    ["1-9", "Unlock skill by panel order"],
+                    ["C", "Cycle class"],
+                    ["H", "Toggle controls overlay"],
+                ],
+            },
+            {
+                heading: "Utility",
+                rows: [
+                    ["P", "Screenshot"],
+                    ["V", "Toggle physics debug"],
+                    ["R", "Quick reset (reload)"],
+                ],
+            },
+        ];
+
+        for (const section of sections) {
+            const group = this.makeSection(section.heading, section.rows);
+            this.surface.body.appendChild(group);
+        }
+
+        this.surface.footer.style.display = "flex";
+        this.surface.footer.textContent = "";
+        this.surface.footer.appendChild(createKeycap("H", "gold"));
+        const closeHint = document.createElement("span");
+        closeHint.textContent = "Close";
+        this.surface.footer.appendChild(closeHint);
+    }
+
+    update(input: { isJustPressed: (key: string) => boolean }): void {
+        if (input.isJustPressed("h") || input.isJustPressed("H")) {
+            if (this.visible) {
+                this.hide();
+            } else {
+                this.show();
+            }
+        }
+    }
+
+    dispose(): void {
+        this.surface.root.remove();
+    }
+
+    hide(): void {
+        this.visible = false;
+        this.surface.setVisible(false);
+    }
+
+    private show(): void {
+        this.visible = true;
+        this.surface.setVisible(true);
+    }
+
+    private makeSection(titleText: string, rows: [string, string][]): HTMLDivElement {
+        const group = document.createElement("div");
+        Object.assign(group.style, {
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "10px",
+            background: "rgba(255,255,255,0.03)",
+            overflow: "hidden",
+        });
 
         const title = document.createElement("div");
-        title.textContent = "Controls";
+        title.textContent = titleText.toUpperCase();
         Object.assign(title.style, {
-            color: "#FFD700",
-            fontWeight: "bold",
-            fontSize: "15px",
-            marginBottom: "12px",
-            letterSpacing: "1px",
+            padding: "6px 10px",
+            borderBottom: "1px solid rgba(255,255,255,0.09)",
+            color: this.surface.tone.subtitle,
+            fontSize: "10px",
+            letterSpacing: "0.8px",
         });
-        this.root.appendChild(title);
+        group.appendChild(title);
 
-        const rows: [string, string][] = [
-            ["W A S D", "Move"],
-            ["Shift (hold)", "Sprint"],
-            ["Ctrl (hold)", "Walk"],
-            ["Mouse", "Camera look"],
-            ["J / LMB", "Attack"],
-            ["Space", "Dodge"],
-            ["E", "Dash Strike"],
-            ["Q", "Spin Slash"],
-            ["F / Tab", "Cycle target"],
-            ["T", "Interact / talk"],
-            ["Enter / Space / T", "Advance dialogue"],
-            ["I", "Toggle inventory"],
-            ["C", "Cycle class"],
-            ["K", "Toggle skill tree panel"],
-            ["1–9", "Unlock skill (when available; order shown in panel / HUD)"],
-            ["P", "Screenshot"],
-            ["V", "Toggle physics debug"],
-            ["H", "Toggle this panel"],
-            ["Esc", "Release mouse (after click-to-capture)"],
-            ["R", "Quick reset (reload)"],
-        ];
+        const body = document.createElement("div");
+        Object.assign(body.style, { padding: "4px 8px" });
 
         for (const [key, action] of rows) {
             const row = document.createElement("div");
             Object.assign(row.style, {
                 display: "grid",
-                gridTemplateColumns: "140px 1fr",
+                gridTemplateColumns: "170px 1fr",
                 gap: "10px",
-                marginBottom: "6px",
+                alignItems: "center",
+                minHeight: "24px",
+                padding: "2px 2px",
             });
-            const k = document.createElement("span");
-            k.textContent = key;
-            Object.assign(k.style, { color: "#c9b87a" });
-            const a = document.createElement("span");
-            a.textContent = action;
-            row.appendChild(k);
-            row.appendChild(a);
-            this.root.appendChild(row);
+
+            const keySlot = document.createElement("div");
+            Object.assign(keySlot.style, { display: "flex", gap: "5px", flexWrap: "wrap" });
+            keySlot.appendChild(createKeycap(key, "gold"));
+
+            const actionLabel = document.createElement("span");
+            actionLabel.textContent = action;
+            actionLabel.style.color = this.surface.tone.bodyText;
+
+            row.appendChild(keySlot);
+            row.appendChild(actionLabel);
+            body.appendChild(row);
         }
 
-        const hint = document.createElement("div");
-        hint.textContent = "Press H to close";
-        Object.assign(hint.style, {
-            marginTop: "14px",
-            fontSize: "11px",
-            opacity: "0.75",
-        });
-        this.root.appendChild(hint);
-
-        document.body.appendChild(this.root);
-    }
-
-    update(input: { isJustPressed: (key: string) => boolean }): void {
-        if (input.isJustPressed("h") || input.isJustPressed("H")) {
-            this.visible = !this.visible;
-            this.root.style.display = this.visible ? "block" : "none";
-        }
-    }
-
-    dispose(): void {
-        this.root.remove();
+        group.appendChild(body);
+        return group;
     }
 }

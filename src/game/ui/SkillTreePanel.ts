@@ -8,89 +8,71 @@ import {
     SkillNodeId,
     SkillTreeState,
 } from "../progression/SkillTree";
+import { createKeycap, createMenuSurface, MenuSurface } from "./MenuTheme";
 
 /**
  * Full class skill list with ranks, prerequisites, and 1–9 hotkey mapping for unlockable nodes.
  */
 export class SkillTreePanel {
-    private readonly root: HTMLDivElement;
+    private readonly surface: MenuSurface;
     private readonly classLine: HTMLDivElement;
     private readonly list: HTMLDivElement;
     private visible = false;
 
     constructor() {
-        this.root = document.createElement("div");
-        this.root.setAttribute("role", "dialog");
-        this.root.setAttribute("aria-label", "Skill tree");
-        const s = this.root.style;
-        s.position = "fixed";
-        s.top = "50%";
-        s.left = "50%";
-        s.transform = "translate(-50%, -50%)";
-        s.zIndex = "19";
-        s.width = "min(440px, calc(100vw - 32px))";
-        s.maxHeight = "min(560px, calc(100vh - 48px))";
-        s.overflow = "hidden";
-        s.padding = "0";
-        s.background = "rgba(10,12,18,0.96)";
-        s.border = "1px solid rgba(140,190,255,0.45)";
-        s.borderRadius = "10px";
-        s.color = "#d8e4f0";
-        s.fontFamily = "monospace";
-        s.fontSize = "12px";
-        s.lineHeight = "1.45";
-        s.boxShadow = "0 8px 36px rgba(0,0,0,0.55)";
-        s.flexDirection = "column";
-        s.display = "none";
+        this.surface = createMenuSurface({
+            title: "Skill Tree",
+            subtitle: "Class talents and progression path",
+            tone: "azure",
+            zIndex: 29,
+            width: "min(560px, calc(100vw - 34px))",
+            maxHeight: "min(650px, calc(100vh - 44px))",
+            onCloseRequest: () => this.hide(),
+        });
+        this.surface.panel.setAttribute("aria-label", "Skill tree");
+        this.surface.body.style.padding = "10px 12px 12px";
+        this.surface.body.style.display = "flex";
+        this.surface.body.style.flexDirection = "column";
+        this.surface.body.style.gap = "10px";
 
-        const header = document.createElement("div");
-        Object.assign(header.style, {
-            padding: "14px 18px 10px",
-            borderBottom: "1px solid rgba(140,190,255,0.2)",
-        });
-        const title = document.createElement("div");
-        title.textContent = "Skill tree";
-        Object.assign(title.style, {
-            color: "#9ec8ff",
-            fontWeight: "bold",
-            fontSize: "14px",
-            marginBottom: "6px",
-            letterSpacing: "0.5px",
-        });
         this.classLine = document.createElement("div");
-        Object.assign(this.classLine.style, { color: "#a8b8c8", fontSize: "11px" });
-        header.appendChild(title);
-        header.appendChild(this.classLine);
+        Object.assign(this.classLine.style, {
+            color: this.surface.tone.subtitle,
+            fontSize: "11px",
+            padding: "8px 10px",
+            border: "1px solid rgba(255,255,255,0.11)",
+            borderRadius: "9px",
+            background: "rgba(255,255,255,0.04)",
+        });
 
         this.list = document.createElement("div");
         Object.assign(this.list.style, {
             overflow: "auto",
-            padding: "10px 16px 14px",
+            padding: "2px",
             flex: "1",
+            display: "flex",
+            flexDirection: "column",
+            gap: "8px",
         });
 
-        const foot = document.createElement("div");
-        foot.textContent = "Press K to close  ·  Keys 1–9 purchase the next available skill in list order";
-        Object.assign(foot.style, {
-            padding: "8px 16px 12px",
-            fontSize: "10px",
-            color: "#6a7a8a",
-            borderTop: "1px solid rgba(140,190,255,0.15)",
-        });
+        this.surface.body.appendChild(this.classLine);
+        this.surface.body.appendChild(this.list);
 
-        this.root.appendChild(header);
-        this.root.appendChild(this.list);
-        this.root.appendChild(foot);
-        document.body.appendChild(this.root);
+        this.surface.footer.style.display = "flex";
+        this.surface.footer.textContent = "";
+        this.surface.footer.appendChild(createKeycap("K", "azure"));
+        this.surface.footer.appendChild(this.inlineLabel("Close"));
+        this.surface.footer.appendChild(this.inlineDivider());
+        this.surface.footer.appendChild(createKeycap("1-9", "azure"));
+        this.surface.footer.appendChild(this.inlineLabel("Unlock the matching listed skill"));
     }
 
     update(input: InputManager, playerBuild: PlayerBuild): void {
         if (input.isJustPressed("k") || input.isJustPressed("K")) {
             this.visible = !this.visible;
-            this.root.style.display = this.visible ? "flex" : "none";
+            this.surface.setVisible(this.visible);
             if (this.visible) this.refresh(playerBuild);
-        }
-        else if (this.visible) {
+        } else if (this.visible) {
             this.refresh(playerBuild);
         }
     }
@@ -98,11 +80,11 @@ export class SkillTreePanel {
     /** Close without toggling (e.g. when entering dialogue). */
     hide(): void {
         this.visible = false;
-        this.root.style.display = "none";
+        this.surface.setVisible(false);
     }
 
     dispose(): void {
-        this.root.remove();
+        this.surface.root.remove();
     }
 
     private refresh(playerBuild: PlayerBuild): void {
@@ -131,30 +113,26 @@ export class SkillTreePanel {
     ): HTMLDivElement {
         const rank = tree.getRank(node.id);
         const maxed = rank >= node.maxRank;
+        const canUnlock = tree.canUnlock(node.id);
         const row = document.createElement("div");
         Object.assign(row.style, {
-            marginBottom: "10px",
-            paddingBottom: "10px",
-            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            padding: "10px 11px",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: "10px",
+            background: canUnlock ? "rgba(126, 183, 255, 0.09)" : "rgba(255,255,255,0.03)",
         });
 
         const titleRow = document.createElement("div");
-        Object.assign(titleRow.style, { display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" });
+        Object.assign(titleRow.style, { display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" });
 
         const hotkey = hotkeyById.get(node.id);
         if (hotkey !== undefined && !maxed) {
-            const badge = document.createElement("span");
-            badge.textContent = `[${hotkey}]`;
-            Object.assign(badge.style, {
-                color: "#ffd83c",
-                fontWeight: "bold",
-                minWidth: "28px",
-            });
+            const badge = createKeycap(String(hotkey), "azure");
             titleRow.appendChild(badge);
         } else if (!maxed) {
             const pad = document.createElement("span");
             pad.textContent = " ";
-            pad.style.minWidth = "28px";
+            pad.style.minWidth = "32px";
             titleRow.appendChild(pad);
         }
 
@@ -167,8 +145,15 @@ export class SkillTreePanel {
         titleRow.appendChild(name);
 
         const rankLbl = document.createElement("span");
-        rankLbl.textContent = ` ${rank}/${node.maxRank}`;
-        Object.assign(rankLbl.style, { color: "#8899aa", fontSize: "11px" });
+        rankLbl.textContent = `${rank}/${node.maxRank}`;
+        Object.assign(rankLbl.style, {
+            color: "#9eb3c8",
+            fontSize: "10px",
+            border: "1px solid rgba(255,255,255,0.15)",
+            borderRadius: "999px",
+            padding: "1px 7px",
+            lineHeight: "1.4",
+        });
         titleRow.appendChild(rankLbl);
 
         row.appendChild(titleRow);
@@ -183,7 +168,7 @@ export class SkillTreePanel {
         Object.assign(status.style, {
             marginTop: "5px",
             fontSize: "10px",
-            color: tree.canUnlock(node.id) ? "#ffd83c" : "#6a7a88",
+            color: canUnlock ? "#c8e3ff" : "#7e93a8",
         });
         row.appendChild(status);
 
@@ -201,5 +186,18 @@ export class SkillTreePanel {
             return `Need ${node.cost} SP (have ${tree.getSkillPoints()})`;
         }
         return "Locked";
+    }
+
+    private inlineLabel(text: string): HTMLSpanElement {
+        const span = document.createElement("span");
+        span.textContent = text;
+        return span;
+    }
+
+    private inlineDivider(): HTMLSpanElement {
+        const span = document.createElement("span");
+        span.textContent = "·";
+        span.style.opacity = "0.8";
+        return span;
     }
 }
