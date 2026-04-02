@@ -1,4 +1,3 @@
-import { InputManager } from "../input/InputManager";
 import { PlayerBuild } from "../progression/PlayerBuild";
 import { PlayerClassId } from "../progression/PlayerClass";
 import {
@@ -67,12 +66,8 @@ export class SkillTreePanel {
         this.surface.footer.appendChild(this.inlineLabel("Unlock the matching listed skill"));
     }
 
-    update(input: InputManager, playerBuild: PlayerBuild): void {
-        if (input.isJustPressed("k") || input.isJustPressed("K")) {
-            this.visible = !this.visible;
-            this.surface.setVisible(this.visible);
-            if (this.visible) this.refresh(playerBuild);
-        } else if (this.visible) {
+    update(playerBuild: PlayerBuild): void {
+        if (this.visible) {
             this.refresh(playerBuild);
         }
     }
@@ -81,6 +76,24 @@ export class SkillTreePanel {
     hide(): void {
         this.visible = false;
         this.surface.setVisible(false);
+    }
+
+    show(playerBuild: PlayerBuild): void {
+        this.visible = true;
+        this.surface.setVisible(true);
+        this.refresh(playerBuild);
+    }
+
+    toggle(playerBuild: PlayerBuild): void {
+        if (this.visible) {
+            this.hide();
+        } else {
+            this.show(playerBuild);
+        }
+    }
+
+    isVisible(): boolean {
+        return this.visible;
     }
 
     dispose(): void {

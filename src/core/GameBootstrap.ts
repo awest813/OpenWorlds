@@ -120,13 +120,24 @@ export class GameBootstrap {
         const playerPos = ctx.player.getTransform().getAbsolutePosition();
         ctx.interactionSystem.updateProximity(playerPos);
 
-        if (ctx.dialogueSystem.isActive()) {
+        const dialogueActive = ctx.dialogueSystem.isActive();
+        if (dialogueActive) {
             // Dialogue mode: freeze movement/combat; only process dialogue input
             this.targetReticle.clear();
-            this.inventoryHud.hide();
-            this.skillTreePanel.hide();
+            this.hideAllMenus();
             ctx.dialogueSystem.update(this.input);
         } else {
+            this.handleMenuInput(ctx.playerBuild);
+            this.inventoryHud.refresh(ctx.playerBuild);
+            this.skillTreePanel.update(ctx.playerBuild);
+        }
+
+        const menuActive = !dialogueActive && this.isAnyMenuVisible();
+        if (menuActive) {
+            this.targetReticle.clear();
+        }
+
+        if (!dialogueActive && !menuActive) {
             // NPC talk takes priority over gatherables on the same key (T).
             if (this.input.isJustPressed("t")) {
                 const npc = ctx.interactionSystem.getNearbyNpc();
@@ -156,21 +167,6 @@ export class GameBootstrap {
             ctx.targetSystem.update(dt);
             ctx.encounterManager.update(dt);
             this.targetReticle.update(ctx.targetSystem);
-        }
-
-        // HUD updates always run so panels stay visible during dialogue
-            ctx.combatHud.update(
-            ctx.combatController,
-            ctx.targetSystem,
-            ctx.player.health,
-            ctx.encounterManager,
-            ctx.playerProgression,
-            ctx.playerBuild
-        );
-
-            if (this.input.isJustPressed("i") || this.input.isJustPressed("I")) {
-                this.inventoryHud.toggle(ctx.playerBuild);
-            }
 
             if (this.input.isJustPressed("c") || this.input.isJustPressed("C")) {
                 ctx.playerBuild.cycleClass();
@@ -186,24 +182,74 @@ export class GameBootstrap {
                     }
                 }
             }
+        }
+
+        // HUD updates always run so panels stay visible during dialogue/menus.
+        ctx.combatHud.update(
+            ctx.combatController,
+            ctx.targetSystem,
+            ctx.player.health,
+            ctx.encounterManager,
+            ctx.playerProgression,
+            ctx.playerBuild
+        );
+
         const gatherPrompt =
-            ctx.interactionSystem.getNearbyNpc() === null
+            !dialogueActive && !menuActive && ctx.interactionSystem.getNearbyNpc() === null
                 ? ctx.gatherableManager.getPromptInRange(playerPos)
                 : null;
         ctx.questHud.update(
             dt,
             ctx.questManager,
-            ctx.interactionSystem.getNearbyNpc()?.name ?? null,
+            !menuActive ? ctx.interactionSystem.getNearbyNpc()?.name ?? null : null,
             gatherPrompt
         );
 
-        this.controlsOverlay.update(this.input);
-        if (!ctx.dialogueSystem.isActive()) {
-            this.skillTreePanel.update(this.input, ctx.playerBuild);
-        }
-
         // Flush single-frame input state last so all systems see it this tick.
         this.input.clearFrame();
+    }
+
+    private handleMenuInput(playerBuild: HubSceneContext["playerBuild"]): void {
+        if (this.input.isJustPressed("Escape")) {
+            this.hideAllMenus();
+            return;
+        }
+        if (this.input.isJustPressed("h") || this.input.isJustPressed("H")) {
+            if (this.controlsOverlay.isVisible()) {
+                this.controlsOverlay.hide();
+            } else {
+                this.hideAllMenus();
+                this.controlsOverlay.show();
+            }
+            return;
+        }
+        if (this.input.isJustPressed("i") || this.input.isJustPressed("I")) {
+            if (this.inventoryHud.isVisible()) {
+                this.inventoryHud.hide();
+            } else {
+                this.hideAllMenus();
+                this.inventoryHud.show(playerBuild);
+            }
+            return;
+        }
+        if (this.input.isJustPressed("k") || this.input.isJustPressed("K")) {
+            if (this.skillTreePanel.isVisible()) {
+                this.skillTreePanel.hide();
+            } else {
+                this.hideAllMenus();
+                this.skillTreePanel.show(playerBuild);
+            }
+        }
+    }
+
+    private hideAllMenus(): void {
+        this.controlsOverlay.hide();
+        this.inventoryHud.hide();
+        this.skillTreePanel.hide();
+    }
+
+    private isAnyMenuVisible(): boolean {
+        return this.controlsOverlay.isVisible() || this.inventoryHud.isVisible() || this.skillTreePanel.isVisible();
     }
 
     private bindDebugKeys(canvas: HTMLCanvasElement): void {
