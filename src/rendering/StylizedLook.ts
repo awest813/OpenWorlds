@@ -76,6 +76,19 @@ export function attachStylizedRenderingPipeline(scene: Scene, camera: Camera): D
     pipeline.grainEnabled = true;
     pipeline.grain.intensity = 9;
 
+    // Subtle RGB fringe at screen edges — reads as a light lens / fantasy grade.
+    pipeline.chromaticAberrationEnabled = true;
+    pipeline.chromaticAberration.aberrationAmount = 7;
+    pipeline.chromaticAberration.radialIntensity = 0.22;
+
+    // Soft halo on emissive materials (campfire, fire mesh, UI-style highlights in world).
+    pipeline.glowLayerEnabled = true;
+    const glow = pipeline.glowLayer;
+    if (glow) {
+        glow.intensity = 0.35;
+        glow.blurKernelSize = 28;
+    }
+
     return pipeline;
 }
 
