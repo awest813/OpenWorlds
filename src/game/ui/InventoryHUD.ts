@@ -59,12 +59,10 @@ export class InventoryHUD {
     }
 
     toggle(build: PlayerBuild): void {
-        this.visible = !this.visible;
         if (this.visible) {
-            this.render(build);
-            this.surface.setVisible(true);
+            this.hide();
         } else {
-            this.surface.setVisible(false);
+            this.show(build);
         }
     }
 
@@ -75,6 +73,17 @@ export class InventoryHUD {
 
     isVisible(): boolean {
         return this.visible;
+    }
+
+    show(build: PlayerBuild): void {
+        this.visible = true;
+        this.refresh(build);
+        this.surface.setVisible(true);
+    }
+
+    refresh(build: PlayerBuild): void {
+        if (!this.visible) return;
+        this.render(build);
     }
 
     dispose(): void {

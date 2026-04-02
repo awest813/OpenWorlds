@@ -79,20 +79,23 @@ export class ControlsOverlay {
         const closeHint = document.createElement("span");
         closeHint.textContent = "Close";
         this.surface.footer.appendChild(closeHint);
-    }
-
-    update(input: { isJustPressed: (key: string) => boolean }): void {
-        if (input.isJustPressed("h") || input.isJustPressed("H")) {
-            if (this.visible) {
-                this.hide();
-            } else {
-                this.show();
-            }
-        }
+        this.surface.footer.appendChild(document.createTextNode(" · "));
+        this.surface.footer.appendChild(createKeycap("Esc", "gold"));
+        const escHint = document.createElement("span");
+        escHint.textContent = "Dismiss";
+        this.surface.footer.appendChild(escHint);
     }
 
     dispose(): void {
         this.surface.root.remove();
+    }
+
+    toggle(): void {
+        if (this.visible) {
+            this.hide();
+        } else {
+            this.show();
+        }
     }
 
     hide(): void {
@@ -100,9 +103,13 @@ export class ControlsOverlay {
         this.surface.setVisible(false);
     }
 
-    private show(): void {
+    show(): void {
         this.visible = true;
         this.surface.setVisible(true);
+    }
+
+    isVisible(): boolean {
+        return this.visible;
     }
 
     private makeSection(titleText: string, rows: [string, string][]): HTMLDivElement {
