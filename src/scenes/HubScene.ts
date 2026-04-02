@@ -42,7 +42,13 @@ import { CombatHUD } from "../game/ui/CombatHUD";
 import { EncounterManager } from "../game/encounter/EncounterManager";
 import { WorldState } from "../game/world/WorldState";
 import { QuestManager } from "../game/quest/QuestManager";
-import { QUEST_BITTERLEAF_FOR_MAREN, QUEST_CLEAR_SCOUTS, QuestState } from "../game/quest/QuestData";
+import {
+    QUEST_BITTERLEAF_FOR_MAREN,
+    QUEST_CLEAR_SCOUTS,
+    QUEST_IRON_IN_THE_EARTH,
+    QUEST_PATROL_CACHES,
+    QuestState,
+} from "../game/quest/QuestData";
 import { NpcController } from "../game/npc/NpcController";
 import { InteractionSystem } from "../game/interaction/InteractionSystem";
 import { DialogueSystem, DialogueLine } from "../game/dialogue/DialogueSystem";
@@ -95,6 +101,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     const questManager = new QuestManager();
     questManager.register(QUEST_CLEAR_SCOUTS);
     questManager.register(QUEST_BITTERLEAF_FOR_MAREN);
+    questManager.register(QUEST_IRON_IN_THE_EARTH);
+    questManager.register(QUEST_PATROL_CACHES);
 
     applyStylizedSceneAtmosphere(scene);
 
@@ -228,6 +236,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     const gatherableManager = new GatherableManager();
     gatherableManager.canGatherQuest = (id) => questManager.getState(id) === QuestState.Active;
     buildBitterleafPatches(scene, shadowGenerator, gatherableManager);
+    buildIronOreNodes(scene, shadowGenerator, gatherableManager);
+    buildSupplyCaches(scene, shadowGenerator, gatherableManager);
 
     // ── NPC: Elder Maren ───────────────────────────────────────────────────
     const elderMaren = new NpcController(scene, {
@@ -238,7 +248,15 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     });
     shadowGenerator.addShadowCaster(elderMaren.mesh);
 
-    const npcs: NpcController[] = [elderMaren];
+    const sergeantEdra = new NpcController(scene, {
+        name: "Sergeant Edra",
+        position: new Vector3(-6, 0, 15),
+        interactRange: 3.5,
+        bodyColor: new Color3(0.32, 0.38, 0.52),
+    });
+    shadowGenerator.addShadowCaster(sergeantEdra.mesh);
+
+    const npcs: NpcController[] = [elderMaren, sergeantEdra];
 
     // ── Interaction system ─────────────────────────────────────────────────
     const interactionSystem = new InteractionSystem();
@@ -455,17 +473,193 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
             ];
         }
 
+        const ironState = questManager.getState(QUEST_IRON_IN_THE_EARTH.id);
+
+        if (ironState === QuestState.NotStarted) {
+            if (worldState.getFlag("iron_declined")) {
+                return [
+                    {
+                        speaker: "Elder Maren",
+                        text: "The iron ore is still sitting there. Walls won't repair themselves.",
+                        choices: [
+                            {
+                                label: "Fine, I'll collect it.",
+                                onSelect: () => {
+                                    questManager.acceptQuest(QUEST_IRON_IN_THE_EARTH.id);
+                                    questHud.showNotification("New Quest:\nIron in the Earth", 3.0);
+                                },
+                            },
+                            { label: "Still no.", onSelect: () => {} },
+                        ],
+                    },
+                ];
+            }
+            return [
+                {
+                    speaker: "Elder Maren",
+                    text: "While you were foraging, I spotted iron ore jutting out near the perimeter walls.",
+                },
+                {
+                    speaker: "Elder Maren",
+                    text: "Three chunks — easy to miss, hard to ignore once you've seen them. The armory would be grateful.",
+                    choices: [
+                        {
+                            label: "I'll grab them.",
+                            onSelect: () => {
+                                questManager.acceptQuest(QUEST_IRON_IN_THE_EARTH.id);
+                                questHud.showNotification("New Quest:\nIron in the Earth", 3.0);
+                            },
+                        },
+                        {
+                            label: "Not my job.",
+                            onSelect: () => {
+                                worldState.setFlag("iron_declined", true);
+                            },
+                        },
+                    ],
+                },
+            ];
+        }
+
+        if (ironState === QuestState.Active) {
+            const p = questManager.getProgress(QUEST_IRON_IN_THE_EARTH.id);
+            const need = QUEST_IRON_IN_THE_EARTH.objective.required - p;
+            return [
+                {
+                    speaker: "Elder Maren",
+                    text: `${need} chunk${pluralS(need)} of iron ore left. Check along the east and west walls.`,
+                },
+            ];
+        }
+
+        if (ironState === QuestState.Completable) {
+            return [
+                {
+                    speaker: "Elder Maren",
+                    text: "That's all three. The armorer will be relieved — or at least marginally less gloomy.",
+                    choices: [
+                        {
+                            label: "Happy to help.",
+                            onSelect: () => {
+                                const reward = questManager.completeQuest(QUEST_IRON_IN_THE_EARTH.id);
+                                if (reward) {
+                                    playerProgression.gainXp(reward.xp, (newLevel) => {
+                                        playerBuild.onLevelUp();
+                                        questHud.showNotification(
+                                            `LEVEL UP!\nYou are now level ${newLevel}.`,
+                                            3.5
+                                        );
+                                    });
+                                    if (reward.healAmount) {
+                                        player.health.heal(reward.healAmount);
+                                    }
+                                    questHud.showNotification(
+                                        `✓  QUEST COMPLETE\nIron in the Earth\n+${reward.xp} XP${reward.goldText ? "  ·  " + reward.goldText : ""}`,
+                                        5.0
+                                    );
+                                }
+                            },
+                        },
+                    ],
+                },
+            ];
+        }
+
         return [
             {
                 speaker: "Elder Maren",
-                text: "The outpost endures — janky, proud, and slightly over-leveled. Come back if fate invents another errand.",
+                text: "The outpost endures — janky, proud, and slightly over-leveled. Sergeant Edra near the gate might have more for you.",
+            },
+        ];
+    }
+
+    function getEdraLines(): DialogueLine[] {
+        const cacheState = questManager.getState(QUEST_PATROL_CACHES.id);
+
+        if (cacheState === QuestState.NotStarted) {
+            return [
+                {
+                    speaker: "Sergeant Edra",
+                    text: "You're the one who cleared the scouts? Good work. I'm Edra — what passes for military command around here.",
+                },
+                {
+                    speaker: "Sergeant Edra",
+                    text: "When those scouts fled, they dropped supply sacks near the gate. I need them recovered before the next wave arrives.",
+                    choices: [
+                        {
+                            label: "I'll find them.",
+                            onSelect: () => {
+                                questManager.acceptQuest(QUEST_PATROL_CACHES.id);
+                                questHud.showNotification("New Quest:\nPatrol Caches", 3.0);
+                            },
+                        },
+                        {
+                            label: "Ask someone else.",
+                            onSelect: () => {},
+                        },
+                    ],
+                },
+            ];
+        }
+
+        if (cacheState === QuestState.Active) {
+            const p = questManager.getProgress(QUEST_PATROL_CACHES.id);
+            const need = QUEST_PATROL_CACHES.objective.required - p;
+            return [
+                {
+                    speaker: "Sergeant Edra",
+                    text: `Still ${need} sack${pluralS(need)} out there. Check near the gate pillars — both sides.`,
+                },
+            ];
+        }
+
+        if (cacheState === QuestState.Completable) {
+            return [
+                {
+                    speaker: "Sergeant Edra",
+                    text: "That's all of them. Rations, rope, a dented flask — nothing glamorous but it adds up.",
+                    choices: [
+                        {
+                            label: "Glad to recover them.",
+                            onSelect: () => {
+                                const reward = questManager.completeQuest(QUEST_PATROL_CACHES.id);
+                                if (reward) {
+                                    playerProgression.gainXp(reward.xp, (newLevel) => {
+                                        playerBuild.onLevelUp();
+                                        questHud.showNotification(
+                                            `LEVEL UP!\nYou are now level ${newLevel}.`,
+                                            3.5
+                                        );
+                                    });
+                                    if (reward.healAmount) {
+                                        player.health.heal(reward.healAmount);
+                                    }
+                                    questHud.showNotification(
+                                        `✓  QUEST COMPLETE\nPatrol Caches\n+${reward.xp} XP${reward.goldText ? "  ·  " + reward.goldText : ""}`,
+                                        5.0
+                                    );
+                                }
+                            },
+                        },
+                    ],
+                },
+            ];
+        }
+
+        return [
+            {
+                speaker: "Sergeant Edra",
+                text: "Hold the line. That's all any of us can do.",
             },
         ];
     }
 
     function handleInteraction(npc: NpcController): void {
-        if (npc !== elderMaren) return;
-        dialogueSystem.show(getElderLines());
+        if (npc === elderMaren) {
+            dialogueSystem.show(getElderLines());
+        } else if (npc === sergeantEdra) {
+            dialogueSystem.show(getEdraLines());
+        }
     }
 
     return {
@@ -688,6 +882,113 @@ function buildBitterleafPatches(
             questId: QUEST_BITTERLEAF_FOR_MAREN.id,
             pickupRange: 2.8,
             prompt: "Gather bitterleaf",
+        });
+        i++;
+    }
+}
+
+/**
+ * Iron ore chunks along the east and west perimeter walls.
+ * Gathered during the "Iron in the Earth" quest.
+ */
+function buildIronOreNodes(
+    scene: Scene,
+    shadowGenerator: ShadowGenerator,
+    gatherableManager: GatherableManager
+): void {
+    const oreMat = new PBRMetallicRoughnessMaterial("ironOreMat", scene);
+    oreMat.baseColor = new Color3(0.35, 0.32, 0.28);
+    oreMat.metallic = 0.55;
+    oreMat.roughness = 0.72;
+
+    const positions: [number, number][] = [
+        [-15, 6],
+        [15, -4],
+        [-13, -8],
+    ];
+
+    let i = 0;
+    for (const [x, z] of positions) {
+        const root = MeshBuilder.CreateBox(`ironOre_${i}`, { width: 0.01, height: 0.01, depth: 0.01 }, scene) as Mesh;
+        root.position.set(x, 0, z);
+        root.isPickable = false;
+
+        const chunk = MeshBuilder.CreateBox(
+            `ironOreChunk_${i}`,
+            { width: 0.45, height: 0.3, depth: 0.38 },
+            scene
+        ) as Mesh;
+        chunk.parent = root;
+        chunk.position.y = 0.15;
+        chunk.rotation.y = i * 1.1;
+        chunk.material = oreMat;
+        chunk.receiveShadows = true;
+        shadowGenerator.addShadowCaster(chunk);
+
+        const vein = MeshBuilder.CreateBox(
+            `ironOreVein_${i}`,
+            { width: 0.22, height: 0.18, depth: 0.26 },
+            scene
+        ) as Mesh;
+        vein.parent = chunk;
+        vein.position.set(0.14, 0.18, -0.08);
+        vein.rotation.y = 0.6;
+        vein.material = oreMat;
+        vein.receiveShadows = true;
+        shadowGenerator.addShadowCaster(vein);
+
+        gatherableManager.register({
+            mesh: root,
+            questId: QUEST_IRON_IN_THE_EARTH.id,
+            pickupRange: 2.5,
+            prompt: "Collect iron ore",
+        });
+        i++;
+    }
+}
+
+/**
+ * Abandoned supply sacks near the gate pillars.
+ * Gathered during the "Patrol Caches" quest.
+ */
+function buildSupplyCaches(
+    scene: Scene,
+    shadowGenerator: ShadowGenerator,
+    gatherableManager: GatherableManager
+): void {
+    const sackMat = new PBRMetallicRoughnessMaterial("supplySackMat", scene);
+    sackMat.baseColor = new Color3(0.52, 0.44, 0.3);
+    sackMat.roughness = 0.95;
+    sackMat.metallic = 0.0;
+
+    const positions: [number, number][] = [
+        [-8, 16],
+        [8, 14],
+    ];
+
+    let i = 0;
+    for (const [x, z] of positions) {
+        const root = MeshBuilder.CreateBox(`supplyCache_${i}`, { width: 0.01, height: 0.01, depth: 0.01 }, scene) as Mesh;
+        root.position.set(x, 0, z);
+        root.isPickable = false;
+
+        const sack = MeshBuilder.CreateBox(
+            `supplySackBody_${i}`,
+            { width: 0.5, height: 0.42, depth: 0.38 },
+            scene
+        ) as Mesh;
+        sack.parent = root;
+        sack.position.y = 0.21;
+        sack.rotation.y = i * 0.9 + 0.3;
+        sack.material = sackMat;
+        sack.receiveShadows = true;
+        shadowGenerator.addShadowCaster(sack);
+
+        gatherableManager.register({
+            mesh: root,
+            questId: QUEST_PATROL_CACHES.id,
+            pickupRange: 2.5,
+            prompt: "Recover supply cache",
         });
         i++;
     }

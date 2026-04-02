@@ -92,6 +92,12 @@ export class PlayerBuild {
         return this.inventory.get(itemId) ?? 0;
     }
 
+    getInventoryEntries(): Array<{ itemId: ItemId; count: number }> {
+        return Array.from(this.inventory.entries())
+            .filter(([, count]) => count > 0)
+            .map(([itemId, count]) => ({ itemId, count }));
+    }
+
     applyLootDrops(drops: LootDrop[]): string[] {
         const merged = mergeLootDrops(drops);
         const lines: string[] = [];

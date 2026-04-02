@@ -29,6 +29,7 @@ It includes real-time combat, enemy archetypes, NPC interactions, dialogue, and 
 - `F` or `Tab` — Cycle target
 - `T` — Interact / talk
 - `Enter` / `Space` / `T` — Advance dialogue
+- `I` — Toggle inventory
 - `P` — Screenshot
 - `V` — Toggle physics debug viewer
 - `H` — Toggle controls help overlay
