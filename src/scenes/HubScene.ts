@@ -187,6 +187,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     buildHubStructure(scene, shadowGenerator);
 
     await scatterVillageRocks(scene, shadowGenerator);
+    await placeBabylonAssetsVillageProps(scene, shadowGenerator);
 
     // ── Player ─────────────────────────────────────────────────────────────
     const player = await PlayerController.CreateAsync(scene, input);
@@ -820,19 +821,102 @@ function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void
     }
 }
 
+/**
+ * glTF meshes from the Babylon.js Assets CDN (mirrors https://github.com/BabylonJS/Assets, CC BY 4.0).
+ */
 const VILLAGE_ROCK_URL = "https://assets.babylonjs.com/meshes/villagePack/rocks1/rocks1.glb";
+const VILLAGE_ROCK2_URL = "https://assets.babylonjs.com/meshes/villagePack/rocks2/rocks2.glb";
+const VILLAGE_ROCK3_URL = "https://assets.babylonjs.com/meshes/villagePack/rocks3/rocks3.glb";
+const VILLAGE_BARREL_URL = "https://assets.babylonjs.com/meshes/villagePack/barrel/barrel.glb";
+const VILLAGE_CRATE_URL = "https://assets.babylonjs.com/meshes/villagePack/crate1/crate1.glb";
+const VILLAGE_FENCE_URL = "https://assets.babylonjs.com/meshes/villagePack/fence/fence.glb";
+
+interface VillagePropPlacement {
+    x: number;
+    y: number;
+    z: number;
+    scale?: number;
+    rotY?: number;
+}
+
+/**
+ * Clone a hidden template mesh from a remote glb into several world placements.
+ * Failures are swallowed so a CDN hiccup does not break the hub load.
+ */
+async function scatterClonedGltf(
+    scene: Scene,
+    shadowGenerator: ShadowGenerator,
+    url: string,
+    namePrefix: string,
+    placements: VillagePropPlacement[],
+    addStaticPhysics: boolean
+): Promise<void> {
+    try {
+        const result = await SceneLoader.ImportMeshAsync("", "", url, scene);
+        const template = (result.meshes as Mesh[]).find((m) => m.getTotalVertices() > 0);
+        if (!template) {
+            return;
+        }
+        template.setEnabled(false);
+        template.isVisible = false;
+
+        for (let i = 0; i < placements.length; i++) {
+            const p = placements[i];
+            const clone = template.clone(`${namePrefix}_${i}`, null);
+            if (!clone) continue;
+            clone.setEnabled(true);
+            clone.isVisible = true;
+            clone.position.set(p.x, p.y, p.z);
+            const s = p.scale ?? 1;
+            clone.scaling.setAll(s);
+            clone.rotation.y = p.rotY ?? 0;
+            clone.receiveShadows = true;
+            shadowGenerator.addShadowCaster(clone);
+            if (addStaticPhysics) {
+                new PhysicsAggregate(clone, PhysicsShapeType.MESH, { mass: 0 }, scene);
+            }
+        }
+    } catch {
+        /* optional CDN / network failure */
+    }
+}
+
+/** Barrels, crates, fence segments, and extra rock variants around the outpost. */
+async function placeBabylonAssetsVillageProps(scene: Scene, shadowGenerator: ShadowGenerator): Promise<void> {
+    await scatterClonedGltf(scene, shadowGenerator, VILLAGE_BARREL_URL, "hubBarrel", [
+        { x: 7, y: 0, z: -4, scale: 1.05, rotY: 0.9 },
+        { x: -11, y: 0, z: -6, scale: 1.0, rotY: 2.2 },
+        { x: 2, y: 0, z: 20, scale: 1.08, rotY: 1.4 },
+    ], true);
+
+    await scatterClonedGltf(scene, shadowGenerator, VILLAGE_CRATE_URL, "hubCrate", [
+        { x: 8.5, y: 0, z: -3.2, scale: 1.0, rotY: 0.35 },
+        { x: -7, y: 0, z: 8, scale: 0.95, rotY: -0.5 },
+        { x: -4, y: 0, z: 16, scale: 1.0, rotY: 1.1 },
+        { x: 14, y: 0, z: 42, scale: 1.05, rotY: 0.2 },
+    ], true);
+
+    await scatterClonedGltf(scene, shadowGenerator, VILLAGE_FENCE_URL, "hubFence", [
+        { x: -12, y: 0, z: -16, scale: 1.2, rotY: Math.PI / 2 },
+        { x: 12, y: 0, z: -16, scale: 1.2, rotY: Math.PI / 2 },
+        { x: 0, y: 0, z: 24, scale: 1.35, rotY: 0 },
+    ], true);
+
+    await scatterClonedGltf(scene, shadowGenerator, VILLAGE_ROCK2_URL, "scatterRockB", [
+        { x: 5, y: 0, z: 12, scale: 0.9, rotY: 0.8 },
+        { x: -20, y: 0, z: 30, scale: 1.1, rotY: 2.1 },
+        { x: 18, y: 0, z: 52, scale: 0.85, rotY: 0.4 },
+    ], true);
+
+    await scatterClonedGltf(scene, shadowGenerator, VILLAGE_ROCK3_URL, "scatterRockC", [
+        { x: -8, y: 0, z: 32, scale: 1.0, rotY: 1.2 },
+        { x: 12, y: 0, z: 28, scale: 0.95, rotY: 2.6 },
+    ], true);
+}
 
 /** Decorative rocks from Babylon.js Assets (village pack). */
 async function scatterVillageRocks(scene: Scene, shadowGenerator: ShadowGenerator): Promise<void> {
-    const result = await SceneLoader.ImportMeshAsync("", "", VILLAGE_ROCK_URL, scene);
-    const template = (result.meshes as Mesh[]).find((m) => m.getTotalVertices() > 0);
-    if (!template) {
-        return;
-    }
-    template.setEnabled(false);
-    template.isVisible = false;
-
-    const placements: [number, number, number, number][] = [
+    const raw: [number, number, number, number][] = [
         [-14, 0, 8, 1.15],
         [16, 0, -6, 0.95],
         [-6, 0, -15, 1.0],
@@ -841,20 +925,14 @@ async function scatterVillageRocks(scene: Scene, shadowGenerator: ShadowGenerato
         [10, 0, 48, 0.9],
         [-3, 0, 22, 0.75],
     ];
-
-    for (let i = 0; i < placements.length; i++) {
-        const [x, y, z, s] = placements[i];
-        const rock = template.clone(`scatterRock_${i}`, null);
-        if (!rock) continue;
-        rock.setEnabled(true);
-        rock.isVisible = true;
-        rock.position.set(x, y, z);
-        rock.rotation.y = (i * 1.7) % (Math.PI * 2);
-        rock.scaling.setAll(s);
-        rock.receiveShadows = true;
-        shadowGenerator.addShadowCaster(rock);
-        new PhysicsAggregate(rock, PhysicsShapeType.MESH, { mass: 0 }, scene);
-    }
+    const placements: VillagePropPlacement[] = raw.map(([x, y, z, s], i) => ({
+        x,
+        y,
+        z,
+        scale: s,
+        rotY: (i * 1.7) % (Math.PI * 2),
+    }));
+    await scatterClonedGltf(scene, shadowGenerator, VILLAGE_ROCK_URL, "scatterRock", placements, true);
 }
 
 /**
@@ -906,6 +984,7 @@ function buildBitterleafPatches(
             questId: QUEST_BITTERLEAF_FOR_MAREN.id,
             pickupRange: 2.8,
             prompt: "Gather bitterleaf",
+            pickupToastLabel: "bitterleaf",
         });
         i++;
     }
@@ -966,6 +1045,7 @@ function buildIronOreNodes(
             questId: QUEST_IRON_IN_THE_EARTH.id,
             pickupRange: 2.5,
             prompt: "Collect iron ore",
+            pickupToastLabel: "iron ore",
         });
         i++;
     }
@@ -1013,6 +1093,7 @@ function buildSupplyCaches(
             questId: QUEST_PATROL_CACHES.id,
             pickupRange: 2.5,
             prompt: "Recover supply cache",
+            pickupToastLabel: "supply cache",
         });
         i++;
     }

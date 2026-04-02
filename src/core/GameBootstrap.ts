@@ -106,10 +106,10 @@ export class GameBootstrap {
                 if (npc !== null) {
                     ctx.handleInteraction(npc);
                 } else {
-                    const questId = ctx.gatherableManager.tryPickup(playerPos, this.input);
-                    if (questId !== null) {
-                        ctx.questManager.recordGather(questId);
-                        ctx.questHud.showNotification("Gathered: bitterleaf", 2.0);
+                    const pickup = ctx.gatherableManager.tryPickup(playerPos, this.input);
+                    if (pickup !== null) {
+                        ctx.questManager.recordGather(pickup.questId);
+                        ctx.questHud.showNotification(`Gathered: ${pickup.pickupToastLabel}`, 2.0);
                     }
                 }
             }

@@ -12,6 +12,13 @@ export interface GatherableSpawn {
     pickupRange: number;
     /** Shown in the HUD when in range (NPC prompt takes priority). */
     prompt: string;
+    /** Short label for pickup toast (e.g. "Iron ore"). */
+    pickupToastLabel: string;
+}
+
+export interface GatherPickupResult {
+    questId: string;
+    pickupToastLabel: string;
 }
 
 /**
@@ -31,10 +38,6 @@ export class GatherableManager {
         this.items.push(spawn);
     }
 
-    /**
-     * If the player presses interact near an available node, marks it consumed
-     * and returns the quest id to credit. Otherwise null.
-     */
     /** Nearest available gatherable prompt if in range, for HUD. */
     getPromptInRange(playerPos: Vector3): string | null {
         let best: GatherableSpawn | null = null;
@@ -54,7 +57,11 @@ export class GatherableManager {
         return best?.prompt ?? null;
     }
 
-    tryPickup(playerPos: Vector3, input: InputManager): string | null {
+    /**
+     * If the player presses interact near an available node, marks it consumed
+     * and returns quest credit + toast label. Otherwise null.
+     */
+    tryPickup(playerPos: Vector3, input: InputManager): GatherPickupResult | null {
         let best: GatherableSpawn | null = null;
         let bestDist = Infinity;
         for (const g of this.items) {
@@ -72,7 +79,7 @@ export class GatherableManager {
         if (this.canGatherQuest !== null && !this.canGatherQuest(best.questId)) return null;
         this.consumed.add(best.mesh);
         best.mesh.setEnabled(false);
-        return best.questId;
+        return { questId: best.questId, pickupToastLabel: best.pickupToastLabel };
     }
 
     dispose(): void {
