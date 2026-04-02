@@ -197,26 +197,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     const playerProgression = new PlayerProgression(player.health);
     const playerBuild = new PlayerBuild(player.health, playerProgression);
 
-    // ── Enemies (combat zone) ──────────────────────────────────────────────
-    const enemies: EnemyController[] = [
-        new EnemyController(scene, new Vector3(-6, 1, 28), ARCHETYPE_MELEE_CHASER, player.getTransform(), player.health),
-        new EnemyController(scene, new Vector3(6, 1, 32), ARCHETYPE_MELEE_CHASER, player.getTransform(), player.health),
-        new EnemyController(scene, new Vector3(0, 1, 40), ARCHETYPE_HEAVY_BRUISER, player.getTransform(), player.health),
-    ];
-    enemies.forEach((e) => shadowGenerator.addShadowCaster(e.mesh));
-
-    // Bind per-kill quest tracking
-    enemies.forEach((e) => {
-        e.onKilled = () => {
-            questManager.recordKill(QUEST_CLEAR_SCOUTS.id);
-        };
-    });
-
-    // ── Target system ──────────────────────────────────────────────────────
+    // ── Target system + combat controller (before enemies so dodge i-frames can wire in) ──
     const targetSystem = new TargetSystem(scene, player.getTransform());
-    enemies.forEach((e) => targetSystem.register(e));
-
-    // ── Combat controller ──────────────────────────────────────────────────
     const combatController = new CombatController(
         player.getTransform(),
         player.physicsAggregate,
@@ -225,6 +207,45 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
         playerBuild
     );
     player.combatController = combatController;
+
+    const invuln = () => combatController.isDamageInvulnerable();
+
+    // ── Enemies (combat zone) ──────────────────────────────────────────────
+    const enemies: EnemyController[] = [
+        new EnemyController(
+            scene,
+            new Vector3(-6, 1, 28),
+            ARCHETYPE_MELEE_CHASER,
+            player.getTransform(),
+            player.health,
+            invuln
+        ),
+        new EnemyController(
+            scene,
+            new Vector3(6, 1, 32),
+            ARCHETYPE_MELEE_CHASER,
+            player.getTransform(),
+            player.health,
+            invuln
+        ),
+        new EnemyController(
+            scene,
+            new Vector3(0, 1, 40),
+            ARCHETYPE_HEAVY_BRUISER,
+            player.getTransform(),
+            player.health,
+            invuln
+        ),
+    ];
+    enemies.forEach((e) => shadowGenerator.addShadowCaster(e.mesh));
+    enemies.forEach((e) => targetSystem.register(e));
+
+    // Bind per-kill quest tracking
+    enemies.forEach((e) => {
+        e.onKilled = () => {
+            questManager.recordKill(QUEST_CLEAR_SCOUTS.id);
+        };
+    });
 
     // ── Encounter manager ──────────────────────────────────────────────────
     const encounterManager = new EncounterManager(enemies, {

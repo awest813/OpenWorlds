@@ -161,6 +161,8 @@ export class EnemyController {
     private hitDealtThisAttack = false;
     private readonly playerTransform: TransformNode;
     private readonly playerHealth: HealthComponent;
+    /** When set (e.g. dodge i-frames), enemy damage to the player is suppressed. */
+    private readonly isPlayerInvulnerable: (() => boolean) | null;
 
     // Projectiles (ranged only)
     private readonly projectiles: EnemyProjectile[] = [];
@@ -170,7 +172,8 @@ export class EnemyController {
         position: Vector3,
         archetype: EnemyArchetypeConfig,
         playerTransform: TransformNode,
-        playerHealth: HealthComponent
+        playerHealth: HealthComponent,
+        isPlayerInvulnerable?: () => boolean
     ) {
         this.scene = scene;
         this.archetype = archetype;
@@ -178,6 +181,7 @@ export class EnemyController {
         this.spawnPos = position.clone();
         this.playerTransform = playerTransform;
         this.playerHealth = playerHealth;
+        this.isPlayerInvulnerable = isPlayerInvulnerable ?? null;
 
         const id = ++instanceCounter;
         this.mesh = MeshBuilder.CreateCapsule(
@@ -355,7 +359,7 @@ export class EnemyController {
                 this.mesh.getAbsolutePosition(),
                 this.playerTransform.getAbsolutePosition()
             );
-            if (dist <= this.archetype.attackRange * 1.2) {
+            if (dist <= this.archetype.attackRange * 1.2 && !(this.isPlayerInvulnerable?.() ?? false)) {
                 this.playerHealth.takeDamage(this.archetype.attackDamage);
             }
         }
@@ -399,7 +403,10 @@ export class EnemyController {
             const dist = Vector3.Distance(p.mesh.position, playerPos);
             const expired = p.lifetime <= 0 || dist <= COMBAT_CONFIG.ENEMY_PROJECTILE_HIT_RADIUS;
             if (expired) {
-                if (dist <= COMBAT_CONFIG.ENEMY_PROJECTILE_HIT_RADIUS) {
+                if (
+                    dist <= COMBAT_CONFIG.ENEMY_PROJECTILE_HIT_RADIUS &&
+                    !(this.isPlayerInvulnerable?.() ?? false)
+                ) {
                     this.playerHealth.takeDamage(p.damage);
                 }
                 p.mesh.dispose();
