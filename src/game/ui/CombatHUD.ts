@@ -336,7 +336,7 @@ export class CombatHUD {
             lineHeight: "1.6",
         });
         hint.innerHTML =
-            "WASD move &nbsp;|&nbsp; J / LMB attack &nbsp;|&nbsp; E dash-strike &nbsp;|&nbsp; Q spin-slash &nbsp;|&nbsp; Space dodge &nbsp;|&nbsp; F target &nbsp;|&nbsp; T talk &nbsp;|&nbsp; C class &nbsp;|&nbsp; 1–9 skills &nbsp;|&nbsp; R reset";
+            "WASD move &nbsp;|&nbsp; J / LMB attack &nbsp;|&nbsp; E dash-strike &nbsp;|&nbsp; Q spin-slash &nbsp;|&nbsp; Space dodge &nbsp;|&nbsp; F target &nbsp;|&nbsp; T talk &nbsp;|&nbsp; C class &nbsp;|&nbsp; K skills &nbsp;|&nbsp; 1–9 buy &nbsp;|&nbsp; R reset";
 
         // ── Assemble ──────────────────────────────────────────────────────
         this.root.appendChild(this.targetPanel);
@@ -486,11 +486,11 @@ export class CombatHUD {
         this.buildClassLine.textContent = `Class: ${playerBuild.getClassDisplayName()}  (C cycle)`;
         this.buildResourcesLine.textContent = `Gold ${playerBuild.getGold()}  ·  Skill points ${sp}`;
         if (unlockable.length > 0) {
-            const preview = unlockable
-                .slice(0, 3)
+            const keys = unlockable
+                .slice(0, 9)
                 .map((n, i) => `${i + 1}:${n.displayName}`)
                 .join("  ");
-            this.buildSkillHint.textContent = `Skills: keys 1–9 buy (next: ${preview}${unlockable.length > 3 ? "…" : ""})`;
+            this.buildSkillHint.textContent = `Skills: K tree  ·  ${keys}`;
         } else if (sp > 0) {
             this.buildSkillHint.textContent = "Skills: unlock prerequisites to spend points.";
         } else {

@@ -12,6 +12,7 @@ import { InputManager } from "../game/input/InputManager";
 import { createHubScene, HubSceneContext } from "../scenes/HubScene";
 import { ControlsOverlay } from "../game/ui/ControlsOverlay";
 import { InventoryHUD } from "../game/ui/InventoryHUD";
+import { SkillTreePanel } from "../game/ui/SkillTreePanel";
 
 /**
  * GameBootstrap owns the engine, scene, and top-level game loop.
@@ -27,6 +28,7 @@ export class GameBootstrap {
     private readonly canvas: HTMLCanvasElement;
     private readonly controlsOverlay: ControlsOverlay;
     private readonly inventoryHud: InventoryHUD;
+    private readonly skillTreePanel: SkillTreePanel;
 
     private constructor(
         engine: Engine,
@@ -35,7 +37,8 @@ export class GameBootstrap {
         hubCtx: HubSceneContext,
         canvas: HTMLCanvasElement,
         controlsOverlay: ControlsOverlay,
-        inventoryHud: InventoryHUD
+        inventoryHud: InventoryHUD,
+        skillTreePanel: SkillTreePanel
     ) {
         this.engine = engine;
         this.scene = scene;
@@ -44,6 +47,7 @@ export class GameBootstrap {
         this.canvas = canvas;
         this.controlsOverlay = controlsOverlay;
         this.inventoryHud = inventoryHud;
+        this.skillTreePanel = skillTreePanel;
         this.physicsViewer = new PhysicsViewer(scene);
     }
 
@@ -61,8 +65,18 @@ export class GameBootstrap {
         const hubCtx = await createHubScene(scene, input);
         const controlsOverlay = new ControlsOverlay();
         const inventoryHud = new InventoryHUD();
+        const skillTreePanel = new SkillTreePanel();
 
-        const boot = new GameBootstrap(engine, scene, input, hubCtx, canvas, controlsOverlay, inventoryHud);
+        const boot = new GameBootstrap(
+            engine,
+            scene,
+            input,
+            hubCtx,
+            canvas,
+            controlsOverlay,
+            inventoryHud,
+            skillTreePanel
+        );
         boot.bindDebugKeys(canvas);
         boot.startLoop(canvas);
         return boot;
@@ -98,6 +112,7 @@ export class GameBootstrap {
         if (ctx.dialogueSystem.isActive()) {
             // Dialogue mode: freeze movement/combat; only process dialogue input
             this.inventoryHud.hide();
+            this.skillTreePanel.hide();
             ctx.dialogueSystem.update(this.input);
         } else {
             // NPC talk takes priority over gatherables on the same key (T).
@@ -170,6 +185,9 @@ export class GameBootstrap {
         );
 
         this.controlsOverlay.update(this.input);
+        if (!ctx.dialogueSystem.isActive()) {
+            this.skillTreePanel.update(this.input, ctx.playerBuild);
+        }
 
         // Flush single-frame input state last so all systems see it this tick.
         this.input.clearFrame();

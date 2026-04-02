@@ -33,6 +33,9 @@ It includes real-time combat, enemy archetypes, NPC interactions, dialogue, and 
 - `T` — Interact / talk
 - `Enter` / `Space` / `T` — Advance dialogue
 - `I` — Toggle inventory
+- `C` — Cycle class
+- `K` — Toggle skill tree panel (full list and 1–9 hotkey mapping)
+- `1–9` — Unlock next available skill (order matches panel / HUD)
 - `P` — Screenshot
 - `V` — Toggle physics debug viewer
 - `H` — Toggle controls help overlay
