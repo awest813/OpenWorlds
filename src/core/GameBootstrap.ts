@@ -1,6 +1,8 @@
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Scene } from "@babylonjs/core/scene";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
+import "@babylonjs/core/Physics/joinedPhysicsEngineComponent";
+import "@babylonjs/core/Physics/v2/physicsEngineComponent";
 import { HavokPlugin } from "@babylonjs/core/Physics/v2/Plugins/havokPlugin";
 import { PhysicsViewer } from "@babylonjs/core/Debug/physicsViewer";
 import { Tools } from "@babylonjs/core/Misc/tools";
