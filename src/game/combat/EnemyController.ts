@@ -435,6 +435,7 @@ export class EnemyController {
     private onDied(): void {
         this.mesh.scaling.y = 0.25;
         this.mesh.position.y = this.spawnPos.y - 0.35;
+        this.mesh.rotation.x = Math.PI / 2;
         this.mat.baseColor = DEAD_COLOR.clone();
         // Clean up any in-flight projectiles and trails
         this.projectiles.forEach((p) => {

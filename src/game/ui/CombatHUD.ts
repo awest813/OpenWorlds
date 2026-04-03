@@ -460,12 +460,22 @@ export class CombatHUD {
     }
 
     private updateEncounter(encounter: EncounterManager): void {
+        const waves = encounter.getTotalWaves();
+        const meta = encounter.getLastClearMeta();
         if (encounter.isClear()) {
             const loot = encounter.getLastLoot();
             const lootSuffix =
                 loot && loot.drops.length > 0 ? `  ·  ${formatLootSummary(loot.drops)}` : "";
-            this.encounterText.textContent = `✓ ENCOUNTER CLEAR  +${encounter.getReward().xp} XP${lootSuffix}`;
+            const xp = meta?.reward.xp ?? encounter.getReward().xp;
+            if (waves > 1 && meta) {
+                this.encounterText.textContent = `✓ ALL CLEAR  wave ${meta.wave}/${meta.totalWaves}  +${xp} XP${lootSuffix}`;
+            } else {
+                this.encounterText.textContent = `✓ ENCOUNTER CLEAR  +${xp} XP${lootSuffix}`;
+            }
             this.encounterText.style.color = "#7eff7e";
+        } else if (waves > 1) {
+            this.encounterText.textContent = `● WAVE ${encounter.getWaveIndex()} / ${waves}`;
+            this.encounterText.style.color = "#aac8ff";
         } else {
             this.encounterText.textContent = "● ENCOUNTER ACTIVE";
             this.encounterText.style.color = "#aaa";
@@ -476,7 +486,14 @@ export class CombatHUD {
             const loot = encounter.getLastLoot();
             const lootLine =
                 loot && loot.drops.length > 0 ? `\n${formatLootSummary(loot.drops)}` : "";
-            this.showBanner(`✓  ENCOUNTER CLEAR\n+${encounter.getReward().xp} XP${lootLine}\n\nPress R to replay`, "#7eff7e");
+            const xp = meta?.reward.xp ?? encounter.getReward().xp;
+            const headline =
+                waves > 1 ? "✓  ALL WAVES CLEAR" : "✓  ENCOUNTER CLEAR";
+            const waveLine = waves > 1 && meta ? `\n(Final wave +${xp} XP — earlier waves also paid out)` : `\n+${xp} XP`;
+            this.showBanner(
+                `${headline}${waveLine}${lootLine}\n\nPress R to replay`,
+                "#7eff7e"
+            );
         }
     }
 

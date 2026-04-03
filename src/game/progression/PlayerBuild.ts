@@ -1,6 +1,6 @@
 import { HealthComponent } from "../combat/HealthComponent";
 import { COMBAT_CONFIG } from "../combat/CombatConfig";
-import { ItemId, ITEM_IDS } from "../loot/ItemDefinitions";
+import { ItemId, ITEM_IDS, getItemDef } from "../loot/ItemDefinitions";
 import { LootDrop, mergeLootDrops } from "../loot/LootTables";
 import { DEFAULT_PLAYER_CLASS_ID, getPlayerClass, PlayerClassId } from "./PlayerClass";
 import { getSkillNodesForClass, SkillNodeDefinition, SkillTreeState } from "./SkillTree";
@@ -114,7 +114,7 @@ export class PlayerBuild {
                 continue;
             }
             this.inventory.set(d.itemId, (this.inventory.get(d.itemId) ?? 0) + d.quantity);
-            lines.push(`${d.quantity}× ${d.itemId}`);
+            lines.push(`${d.quantity}× ${getItemDef(d.itemId).displayName}`);
         }
         return lines;
     }

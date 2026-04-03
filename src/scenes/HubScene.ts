@@ -36,6 +36,7 @@ import {
     EnemyController,
     ARCHETYPE_MELEE_CHASER,
     ARCHETYPE_HEAVY_BRUISER,
+    ARCHETYPE_RANGED_CASTER,
 } from "../game/combat/EnemyController";
 import { TargetSystem } from "../game/combat/TargetSystem";
 import { CombatController } from "../game/combat/CombatController";
@@ -58,7 +59,7 @@ import { GatherableManager } from "../game/world/GatherableManager";
 import { PlayerProgression } from "../game/progression/PlayerProgression";
 import { PlayerBuild } from "../game/progression/PlayerBuild";
 import { CombatAudio } from "../game/audio/CombatAudio";
-import { LOOT_TABLE_SCOUT_ENCOUNTER } from "../game/loot/LootTables";
+import { LOOT_TABLE_SCOUT_ENCOUNTER, LOOT_TABLE_SCOUT_REINFORCEMENTS } from "../game/loot/LootTables";
 
 import grassTerrainAlbedo from "../assets/external/rpg/grass.png";
 import grassClumpGlb from "../assets/external/rpg/grass.glb";
@@ -90,7 +91,7 @@ export interface HubSceneContext {
  *
  * Layout (top = north / +Z):
  *
- *   z > 20 : Combat zone  — three bandit scouts patrol here.
+ *   z > 20 : Combat zone  — scout patrol; defeating them draws a second wave (bruiser + caster).
  *   z 0-20 : Gate / path  — connects hub to combat zone.
  *   z -20-0: Hub safe zone — NPC, campfire, walls.
  *
@@ -222,7 +223,11 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
 
     const invuln = () => combatController.isDamageInvulnerable();
 
-    // ── Enemies (combat zone) ──────────────────────────────────────────────
+    const dialogueSystem = new DialogueSystem();
+    const questHud = new QuestHUD();
+    const combatHud = new CombatHUD();
+
+    // ── Enemies (combat zone) — wave 1 scouts, wave 2 reinforcements ────────
     const enemies: EnemyController[] = [
         new EnemyController(
             scene,
@@ -252,19 +257,66 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     enemies.forEach((e) => shadowGenerator.addShadowCaster(e.mesh));
     enemies.forEach((e) => targetSystem.register(e));
 
-    // Bind per-kill quest tracking
-    enemies.forEach((e) => {
+    function wireEnemy(e: EnemyController): void {
         e.onKilled = () => {
             questManager.recordKill(QUEST_CLEAR_SCOUTS.id);
+            playerProgression.gainXp(12, (newLevel) => {
+                playerBuild.onLevelUp();
+                questHud.showNotification(`LEVEL UP!\nYou are now level ${newLevel}.`, 3.5);
+            });
         };
-    });
+    }
+    enemies.forEach(wireEnemy);
 
-    // ── Encounter manager ──────────────────────────────────────────────────
-    const encounterManager = new EncounterManager(enemies, {
-        xp: 150,
-        lootTableId: LOOT_TABLE_SCOUT_ENCOUNTER.id,
-        lootPickCount: 2,
-    });
+    // ── Encounter manager (two waves: scouts, then bruiser + caster) ──────
+    const encounterManager = new EncounterManager(
+        enemies,
+        {
+            xp: 120,
+            lootTableId: LOOT_TABLE_SCOUT_ENCOUNTER.id,
+            lootPickCount: 2,
+        },
+        {
+            reward: {
+                xp: 180,
+                lootTableId: LOOT_TABLE_SCOUT_REINFORCEMENTS.id,
+                lootPickCount: 2,
+            },
+            spawn: () => {
+                const wave2: EnemyController[] = [
+                    new EnemyController(
+                        scene,
+                        new Vector3(-8, 1, 44),
+                        ARCHETYPE_HEAVY_BRUISER,
+                        player.getTransform(),
+                        player.health,
+                        invuln
+                    ),
+                    new EnemyController(
+                        scene,
+                        new Vector3(8, 1, 48),
+                        ARCHETYPE_RANGED_CASTER,
+                        player.getTransform(),
+                        player.health,
+                        invuln
+                    ),
+                ];
+                wave2.forEach(wireEnemy);
+                return wave2;
+            },
+        }
+    );
+
+    encounterManager.onSpawnNextWave = (spawned) => {
+        questHud.showNotification("Reinforcements!\nA bruiser and a caster join the fight.", 3.2);
+        spawned.forEach((e) => {
+            shadowGenerator.addShadowCaster(e.mesh);
+            targetSystem.register(e);
+        });
+        for (let i = 0; i < spawned.length; i++) {
+            enemies.push(spawned[i]);
+        }
+    };
 
     const gatherableManager = new GatherableManager();
     gatherableManager.canGatherQuest = (id) => questManager.getState(id) === QuestState.Active;
@@ -294,11 +346,6 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     // ── Interaction system ─────────────────────────────────────────────────
     const interactionSystem = new InteractionSystem();
     npcs.forEach((n) => interactionSystem.register(n));
-
-    // ── UI ─────────────────────────────────────────────────────────────────
-    const dialogueSystem = new DialogueSystem();
-    const questHud = new QuestHUD();
-    const combatHud = new CombatHUD();
 
     encounterManager.onClear = (reward, loot) => {
         playerProgression.gainXp(reward.xp, (newLevel) => {
