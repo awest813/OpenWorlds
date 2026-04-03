@@ -74,9 +74,22 @@ export const LOOT_TABLE_ARENA_SPARRING: LootTable = {
     ],
 };
 
+/** Second wave in the hub scout fight — heavier hitters, slightly better spoils. */
+export const LOOT_TABLE_SCOUT_REINFORCEMENTS: LootTable = {
+    id: "scout_reinforcements",
+    displayName: "Reinforcement spoils",
+    entries: [
+        { itemId: ITEM_IDS.GOLD, weight: 42, minQty: 14, maxQty: 32 },
+        { itemId: ITEM_IDS.SCOUT_BADGE, weight: 22, minQty: 1, maxQty: 2 },
+        { itemId: ITEM_IDS.HEALING_SALVE, weight: 22, minQty: 1, maxQty: 3 },
+        { itemId: ITEM_IDS.IRON_SHARD, weight: 14, minQty: 2, maxQty: 5 },
+    ],
+};
+
 const TABLES_BY_ID: Record<string, LootTable> = {
     [LOOT_TABLE_SCOUT_ENCOUNTER.id]: LOOT_TABLE_SCOUT_ENCOUNTER,
     [LOOT_TABLE_ARENA_SPARRING.id]: LOOT_TABLE_ARENA_SPARRING,
+    [LOOT_TABLE_SCOUT_REINFORCEMENTS.id]: LOOT_TABLE_SCOUT_REINFORCEMENTS,
 };
 
 export function getLootTable(id: string): LootTable | undefined {
