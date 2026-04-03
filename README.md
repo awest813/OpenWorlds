@@ -15,6 +15,8 @@ It includes real-time combat, enemy archetypes, NPC interactions, dialogue, and 
   - Spin Slash ability
   - Target cycling
 - Enemy AI archetypes (melee chaser, heavy bruiser, ranged caster)
+- Hub combat waves: clear the first scout group for XP and loot, then fight reinforcements (heavy + caster) for a second reward
+- Small XP drip on each enemy kill (stacked with encounter clear bonuses)
 - Hub dressing with glTF props from [Babylon.js Assets](https://github.com/BabylonJS/Assets) (barrels, crates, fence, rocks) via the official CDN
 - NPC interaction and dialogue system
 - Quest state + objective tracking HUD
