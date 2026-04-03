@@ -7,9 +7,11 @@ import { PBRMetallicRoughnessMaterial } from "@babylonjs/core/Materials/PBR/pbrM
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
+import { ParticleSystem } from "@babylonjs/core/Particles/particleSystem";
 import { HealthComponent } from "./HealthComponent";
 import { Faction } from "./Faction";
 import { COMBAT_CONFIG } from "./CombatConfig";
+import { spawnHitSparks, createProjectileTrail } from "../../rendering/CombatParticles";
 
 const HIT_COLOR = new Color3(1.0, 0.9, 0.9);
 const DEAD_COLOR = new Color3(0.25, 0.25, 0.25);
@@ -27,6 +29,7 @@ const enum EnemyAIState {
 // ── Projectile data ────────────────────────────────────────────────────────
 interface EnemyProjectile {
     mesh: Mesh;
+    trail: ParticleSystem | null;
     direction: Vector3;
     speed: number;
     damage: number;
@@ -203,6 +206,9 @@ export class EnemyController {
         this.health = new HealthComponent(archetype.maxHp);
         this.health.onDamage = () => {
             this.hitFlashTimer = HIT_FLASH_DURATION;
+            const hitPos = this.mesh.getAbsolutePosition().clone();
+            hitPos.y += archetype.meshHeight * 0.5;
+            spawnHitSparks(scene, hitPos);
         };
         this.health.onDeath = () => {
             this.onDied();
@@ -239,7 +245,11 @@ export class EnemyController {
     }
 
     dispose(): void {
-        this.projectiles.forEach((p) => p.mesh.dispose());
+        this.projectiles.forEach((p) => {
+            p.trail?.stop();
+            p.trail?.dispose();
+            p.mesh.dispose();
+        });
         this.mesh.dispose();
     }
 
@@ -373,17 +383,20 @@ export class EnemyController {
         const dir = target.subtract(from).normalize();
 
         const id = ++instanceCounter;
-        const projMesh = MeshBuilder.CreateSphere(`proj_${id}`, { diameter: 0.3 }, this.scene) as Mesh;
+        const projMesh = MeshBuilder.CreateSphere(`proj_${id}`, { diameter: 0.28 }, this.scene) as Mesh;
         projMesh.position = from;
         projMesh.isPickable = false;
 
         const projMat = new StandardMaterial(`projMat_${id}`, this.scene);
-        projMat.emissiveColor = new Color3(0.3, 0.6, 1.0);
+        projMat.emissiveColor = new Color3(0.4, 0.75, 1.0);
         projMat.disableLighting = true;
         projMesh.material = projMat;
 
+        const trail = createProjectileTrail(this.scene, projMesh);
+
         this.projectiles.push({
             mesh: projMesh,
+            trail,
             direction: dir,
             speed: this.archetype.projectileSpeed,
             damage: this.archetype.projectileDamage,
@@ -409,6 +422,8 @@ export class EnemyController {
                 ) {
                     this.playerHealth.takeDamage(p.damage);
                 }
+                p.trail?.stop();
+                p.trail?.dispose();
                 p.mesh.dispose();
                 this.projectiles.splice(i, 1);
             }
@@ -421,8 +436,12 @@ export class EnemyController {
         this.mesh.scaling.y = 0.25;
         this.mesh.position.y = this.spawnPos.y - 0.35;
         this.mat.baseColor = DEAD_COLOR.clone();
-        // Clean up any in-flight projectiles
-        this.projectiles.forEach((p) => p.mesh.dispose());
+        // Clean up any in-flight projectiles and trails
+        this.projectiles.forEach((p) => {
+            p.trail?.stop();
+            p.trail?.dispose();
+            p.mesh.dispose();
+        });
         this.projectiles.length = 0;
         this.onKilled?.();
     }

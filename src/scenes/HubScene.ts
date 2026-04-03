@@ -9,7 +9,6 @@ import { ShadowGenerator } from "@babylonjs/core/Lights/Shadows/shadowGenerator"
 import { MeshBuilder } from "@babylonjs/core/Meshes/meshBuilder";
 import { Mesh } from "@babylonjs/core/Meshes/mesh";
 import { PBRMetallicRoughnessMaterial } from "@babylonjs/core/Materials/PBR/pbrMetallicRoughnessMaterial";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
 import { PhysicsAggregate } from "@babylonjs/core/Physics/v2/physicsAggregate";
 import { PhysicsShapeType } from "@babylonjs/core/Physics/v2/IPhysicsEnginePlugin";
 import { ReflectionProbe } from "@babylonjs/core/Probes/reflectionProbe";
@@ -21,6 +20,7 @@ import "@babylonjs/loaders/glTF/2.0/glTFLoader";
 import {
     applyStylizedSceneAtmosphere,
     attachStylizedRenderingPipeline,
+    attachSSAO,
     bindOutdoorEnvironment,
     createCobbleMaterial,
     createGrassTerrainMaterial,
@@ -28,6 +28,7 @@ import {
     createWeatheredStoneMaterial,
     createWoodPlankMaterial,
 } from "../rendering/StylizedLook";
+import { createCampfireParticles } from "../rendering/CampfireParticles";
 
 import { InputManager } from "../game/input/InputManager";
 import { PlayerController } from "../game/player/PlayerController";
@@ -201,6 +202,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     shadowGenerator.addShadowCaster(player.model);
 
     attachStylizedRenderingPipeline(scene, player.camera.camera);
+    attachSSAO(scene, player.camera.camera);
 
     const playerProgression = new PlayerProgression(player.health);
     const playerBuild = new PlayerBuild(player.health, playerProgression);
@@ -791,18 +793,13 @@ function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void
     logs.material = logMat;
     shadowGenerator.addShadowCaster(logs);
 
-    const fireMat = new StandardMaterial("fireMat", scene);
-    fireMat.emissiveColor = new Color3(1.0, 0.45, 0.05);
-    fireMat.disableLighting = true;
-
-    const fire = MeshBuilder.CreateSphere("campfireFire", { diameter: 0.38 }, scene) as Mesh;
-    fire.position.set(-5, 0.38, -5);
-    fire.material = fireMat;
+    // Particle fire replaces the old emissive sphere.
+    createCampfireParticles(scene, new Vector3(-5, 0.22, -5));
 
     const fireLight = new PointLight("fireLight", new Vector3(-5, 0.6, -5), scene);
     fireLight.diffuse = new Color3(1.0, 0.55, 0.15);
     fireLight.intensity = 1.8;
-    fireLight.range = 14;
+    fireLight.range = 16;
 
     let campfireFlickerT = 0;
     scene.onBeforeRenderObservable.add(() => {
@@ -811,10 +808,6 @@ function buildHubStructure(scene: Scene, shadowGenerator: ShadowGenerator): void
         const wobble =
             Math.sin(campfireFlickerT * 14.0) * 0.48 + Math.sin(campfireFlickerT * 23.3 + 1.2) * 0.28;
         fireLight.intensity = 1.65 + wobble * 0.42;
-        const em = 1.0 + wobble * 0.1;
-        fireMat.emissiveColor.set(1.0 * em, 0.45 * em, 0.06 * em);
-        const s = 1 + wobble * 0.055;
-        fire.scaling.setAll(s);
     });
 
     // ── Rubble / detail stones near NPC ───────────────────────────────────

@@ -7,6 +7,7 @@ import { PBRMetallicRoughnessMaterial } from "@babylonjs/core/Materials/PBR/pbrM
 import { ColorCurves } from "@babylonjs/core/Materials/colorCurves";
 import { ImageProcessingConfiguration } from "@babylonjs/core/Materials/imageProcessingConfiguration";
 import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline";
+import { SSAO2RenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/ssao2RenderingPipeline";
 
 /**
  * Public-domain textures from the Babylon.js Assets CDN
@@ -43,53 +44,77 @@ export function attachStylizedRenderingPipeline(scene: Scene, camera: Camera): D
 
     pipeline.fxaaEnabled = true;
     pipeline.sharpenEnabled = true;
-    pipeline.sharpen.edgeAmount = 0.12;
+    pipeline.sharpen.edgeAmount = 0.18;
     pipeline.sharpen.colorAmount = 1;
 
     pipeline.bloomEnabled = true;
-    pipeline.bloomThreshold = 0.82;
-    pipeline.bloomWeight = 0.22;
-    pipeline.bloomKernel = 48;
+    pipeline.bloomThreshold = 0.75;
+    pipeline.bloomWeight = 0.32;
+    pipeline.bloomKernel = 64;
     pipeline.bloomScale = 0.5;
 
     pipeline.imageProcessingEnabled = true;
     const ipc = pipeline.imageProcessing.imageProcessingConfiguration;
     ipc.toneMappingEnabled = true;
     ipc.toneMappingType = ImageProcessingConfiguration.TONEMAPPING_ACES;
-    ipc.exposure = 1.05;
-    ipc.contrast = 1.08;
+    ipc.exposure = 1.1;
+    ipc.contrast = 1.12;
 
     ipc.vignetteEnabled = true;
-    ipc.vignetteWeight = 0.45;
-    ipc.vignetteColor = new Color4(0.12, 0.14, 0.22, 1);
+    ipc.vignetteWeight = 0.52;
+    ipc.vignetteColor = new Color4(0.08, 0.1, 0.18, 1);
     ipc.vignetteBlendMode = ImageProcessingConfiguration.VIGNETTEMODE_MULTIPLY;
 
     const curves = new ColorCurves();
-    curves.globalSaturation = 12;
-    curves.globalDensity = 8;
+    curves.globalSaturation = 18;
+    curves.globalDensity = 10;
     curves.globalHue = 195;
-    curves.highlightsSaturation = -6;
-    curves.shadowsSaturation = -4;
+    curves.highlightsSaturation = -8;
+    curves.highlightsExposure = 4;
+    curves.shadowsSaturation = -6;
+    curves.shadowsHue = 210;
     ipc.colorCurves = curves;
     ipc.colorCurvesEnabled = true;
 
     pipeline.grainEnabled = true;
-    pipeline.grain.intensity = 9;
+    pipeline.grain.intensity = 7;
+    pipeline.grain.animated = true;
 
     // Subtle RGB fringe at screen edges — reads as a light lens / fantasy grade.
     pipeline.chromaticAberrationEnabled = true;
-    pipeline.chromaticAberration.aberrationAmount = 7;
-    pipeline.chromaticAberration.radialIntensity = 0.22;
+    pipeline.chromaticAberration.aberrationAmount = 5;
+    pipeline.chromaticAberration.radialIntensity = 0.18;
 
-    // Soft halo on emissive materials (campfire, fire mesh, UI-style highlights in world).
+    // Glow on emissive materials: campfire, particle fire, orbs, projectiles.
     pipeline.glowLayerEnabled = true;
     const glow = pipeline.glowLayer;
     if (glow) {
-        glow.intensity = 0.35;
-        glow.blurKernelSize = 28;
+        glow.intensity = 0.55;
+        glow.blurKernelSize = 36;
     }
 
     return pipeline;
+}
+
+/**
+ * Attaches SSAO2 ambient occlusion to deepen contact shadows and ground-object edges.
+ * Call after the active camera exists, ideally right after attachStylizedRenderingPipeline.
+ */
+export function attachSSAO(scene: Scene, camera: Camera): SSAO2RenderingPipeline {
+    const ssao = new SSAO2RenderingPipeline(
+        "ssao",
+        scene,
+        { ssaoRatio: 0.5, blurRatio: 1.0 },
+        [camera],
+        true
+    );
+    ssao.radius = 1.8;
+    ssao.totalStrength = 1.4;
+    ssao.maxZ = 80;
+    ssao.minZAspect = 0.2;
+    ssao.samples = 16;
+    ssao.expensiveBlur = true;
+    return ssao;
 }
 
 export interface TiledTerrainMaterialOptions {
