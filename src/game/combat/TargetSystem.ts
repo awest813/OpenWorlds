@@ -84,6 +84,20 @@ export class TargetSystem {
     }
 
     /**
+     * If the player has no lock, acquire the nearest foe in the melee cone so
+     * swings still soft-lock like KH2 / FF7R without forcing F every time.
+     */
+    tryAutoAcquireMeleeTarget(): void {
+        if (this.currentTarget !== null && this.currentTarget.isAlive()) {
+            return;
+        }
+        const playerPos = this.playerTransform.getAbsolutePosition();
+        const forward = this.getPlayerForward();
+        const range = COMBAT_CONFIG.ATTACK_RANGE + 0.85;
+        this.currentTarget = this.findNearestInRange(playerPos, forward, range);
+    }
+
+    /**
      * Returns the nearest living enemy within `range` metres that lies inside
      * the forward cone defined by COMBAT_CONFIG.TARGET_FOV_HALF_ANGLE_DEG.
      * Used by CombatController for untargeted attacks.

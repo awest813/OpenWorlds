@@ -83,8 +83,8 @@ export class GameBootstrap {
             skillTreePanel,
             targetReticle
         );
-        hubCtx.combatController.onMeleeHitConnect = () => {
-            hubCtx.player.camera.applyCombatPunch(1);
+        hubCtx.combatController.onMeleeHitConnect = (strength) => {
+            hubCtx.player.camera.applyCombatPunch(strength);
         };
         boot.bindDebugKeys(canvas);
         boot.startLoop(canvas);

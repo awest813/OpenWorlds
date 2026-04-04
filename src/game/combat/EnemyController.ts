@@ -166,6 +166,11 @@ export class EnemyController {
     private readonly playerHealth: HealthComponent;
     /** When set (e.g. dodge i-frames), enemy damage to the player is suppressed. */
     private readonly isPlayerInvulnerable: (() => boolean) | null;
+    /** Block / guard reduces damage; post-guard vuln can raise it (from CombatController). */
+    private readonly getPlayerDamageMultiplier: (() => number) | null;
+
+    /** Seconds remaining where the enemy cannot move or attack (player break). */
+    private staggerTimer = 0;
 
     // Projectiles (ranged only)
     private readonly projectiles: EnemyProjectile[] = [];
@@ -176,7 +181,8 @@ export class EnemyController {
         archetype: EnemyArchetypeConfig,
         playerTransform: TransformNode,
         playerHealth: HealthComponent,
-        isPlayerInvulnerable?: () => boolean
+        isPlayerInvulnerable?: () => boolean,
+        getPlayerDamageMultiplier?: () => number
     ) {
         this.scene = scene;
         this.archetype = archetype;
@@ -185,6 +191,7 @@ export class EnemyController {
         this.playerTransform = playerTransform;
         this.playerHealth = playerHealth;
         this.isPlayerInvulnerable = isPlayerInvulnerable ?? null;
+        this.getPlayerDamageMultiplier = getPlayerDamageMultiplier ?? null;
 
         const id = ++instanceCounter;
         this.mesh = MeshBuilder.CreateCapsule(
@@ -230,6 +237,19 @@ export class EnemyController {
         this.health.takeDamage(damage);
     }
 
+    /** Brief stagger from heavy hits — interrupts windups and stops movement. */
+    applyStagger(seconds: number): void {
+        if (this.health.isDead || seconds <= 0) return;
+        this.staggerTimer = Math.max(this.staggerTimer, seconds);
+        if (this.aiState === EnemyAIState.Attacking) {
+            this.aiState = EnemyAIState.Cooldown;
+            this.attackCooldownTimer = Math.max(
+                this.attackCooldownTimer,
+                this.archetype.attackCooldown * 0.45
+            );
+        }
+    }
+
     isAlive(): boolean {
         return !this.health.isDead;
     }
@@ -265,6 +285,11 @@ export class EnemyController {
     // ── AI state machine ─────────────────────────────────────────────────────
 
     private updateAI(dt: number): void {
+        if (this.staggerTimer > 0) {
+            this.staggerTimer = Math.max(0, this.staggerTimer - dt);
+            return;
+        }
+
         if (this.attackCooldownTimer > 0) this.attackCooldownTimer -= dt;
 
         const playerPos = this.playerTransform.getAbsolutePosition();
@@ -370,7 +395,9 @@ export class EnemyController {
                 this.playerTransform.getAbsolutePosition()
             );
             if (dist <= this.archetype.attackRange * 1.2 && !(this.isPlayerInvulnerable?.() ?? false)) {
-                this.playerHealth.takeDamage(this.archetype.attackDamage);
+                const mult = this.getPlayerDamageMultiplier?.() ?? 1;
+                const dmg = Math.max(1, Math.round(this.archetype.attackDamage * mult));
+                this.playerHealth.takeDamage(dmg);
             }
         }
     }
@@ -420,7 +447,9 @@ export class EnemyController {
                     dist <= COMBAT_CONFIG.ENEMY_PROJECTILE_HIT_RADIUS &&
                     !(this.isPlayerInvulnerable?.() ?? false)
                 ) {
-                    this.playerHealth.takeDamage(p.damage);
+                    const mult = this.getPlayerDamageMultiplier?.() ?? 1;
+                    const dmg = Math.max(1, Math.round(p.damage * mult));
+                    this.playerHealth.takeDamage(dmg);
                 }
                 p.trail?.stop();
                 p.trail?.dispose();

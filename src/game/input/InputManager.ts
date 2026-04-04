@@ -36,6 +36,9 @@ export class InputManager {
 
         // Mouse buttons – stored as "mouse0", "mouse1", etc.
         if (canvas) {
+            canvas.addEventListener("contextmenu", (e) => {
+                e.preventDefault();
+            });
             canvas.addEventListener("mousedown", (e) => {
                 const key = `mouse${e.button}`;
                 if (!this.keyState.get(key)) {

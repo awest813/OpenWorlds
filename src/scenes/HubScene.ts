@@ -222,6 +222,7 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
     player.combatController = combatController;
 
     const invuln = () => combatController.isDamageInvulnerable();
+    const damageMult = () => combatController.getIncomingDamageMultiplier();
 
     const dialogueSystem = new DialogueSystem();
     const questHud = new QuestHUD();
@@ -235,7 +236,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
             ARCHETYPE_MELEE_CHASER,
             player.getTransform(),
             player.health,
-            invuln
+            invuln,
+            damageMult
         ),
         new EnemyController(
             scene,
@@ -243,7 +245,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
             ARCHETYPE_MELEE_CHASER,
             player.getTransform(),
             player.health,
-            invuln
+            invuln,
+            damageMult
         ),
         new EnemyController(
             scene,
@@ -251,7 +254,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
             ARCHETYPE_HEAVY_BRUISER,
             player.getTransform(),
             player.health,
-            invuln
+            invuln,
+            damageMult
         ),
     ];
     enemies.forEach((e) => shadowGenerator.addShadowCaster(e.mesh));
@@ -290,7 +294,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
                         ARCHETYPE_HEAVY_BRUISER,
                         player.getTransform(),
                         player.health,
-                        invuln
+                        invuln,
+                        damageMult
                     ),
                     new EnemyController(
                         scene,
@@ -298,7 +303,8 @@ export async function createHubScene(scene: Scene, input: InputManager): Promise
                         ARCHETYPE_RANGED_CASTER,
                         player.getTransform(),
                         player.health,
-                        invuln
+                        invuln,
+                        damageMult
                     ),
                 ];
                 wave2.forEach(wireEnemy);
