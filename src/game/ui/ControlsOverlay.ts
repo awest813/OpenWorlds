@@ -40,6 +40,7 @@ export class ControlsOverlay {
                 heading: "Combat",
                 rows: [
                     ["J / LMB", "Attack"],
+                    ["RMB (hold)", "Guard (reduced damage; brief vuln on release)"],
                     ["Space", "Dodge"],
                     ["E", "Dash Strike"],
                     ["Q", "Spin Slash"],

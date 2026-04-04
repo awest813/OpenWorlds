@@ -336,7 +336,7 @@ export class CombatHUD {
             lineHeight: "1.6",
         });
         hint.innerHTML =
-            "WASD move &nbsp;|&nbsp; J / LMB attack &nbsp;|&nbsp; E dash-strike &nbsp;|&nbsp; Q spin-slash &nbsp;|&nbsp; Space dodge &nbsp;|&nbsp; F target &nbsp;|&nbsp; T talk &nbsp;|&nbsp; C class &nbsp;|&nbsp; K skills &nbsp;|&nbsp; 1–9 buy &nbsp;|&nbsp; R reset";
+            "WASD move &nbsp;|&nbsp; J / LMB attack &nbsp;|&nbsp; RMB guard &nbsp;|&nbsp; E dash-strike &nbsp;|&nbsp; Q spin-slash &nbsp;|&nbsp; Space dodge &nbsp;|&nbsp; F target &nbsp;|&nbsp; T talk &nbsp;|&nbsp; C class &nbsp;|&nbsp; K skills &nbsp;|&nbsp; 1–9 buy &nbsp;|&nbsp; R reset";
 
         // ── Assemble ──────────────────────────────────────────────────────
         this.root.appendChild(this.targetPanel);
