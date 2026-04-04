@@ -141,11 +141,12 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
         combatAudio
     );
     player.combatController = combatController;
-    combatController.onMeleeHitConnect = () => {
-        player.camera.applyCombatPunch(1);
+    combatController.onMeleeHitConnect = (strength) => {
+        player.camera.applyCombatPunch(strength);
     };
 
     const invuln = () => combatController.isDamageInvulnerable();
+    const damageMult = () => combatController.getIncomingDamageMultiplier();
 
     // --- Enemies (three archetypes) ---
     // Enemy positions are spread around the arena so each archetype's
@@ -158,7 +159,8 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
             ARCHETYPE_MELEE_CHASER,
             player.getTransform(),
             player.health,
-            invuln
+            invuln,
+            damageMult
         ),
         new EnemyController(
             scene,
@@ -166,7 +168,8 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
             ARCHETYPE_HEAVY_BRUISER,
             player.getTransform(),
             player.health,
-            invuln
+            invuln,
+            damageMult
         ),
         new EnemyController(
             scene,
@@ -174,7 +177,8 @@ export async function createArenaScene(scene: Scene, input: InputManager): Promi
             ARCHETYPE_RANGED_CASTER,
             player.getTransform(),
             player.health,
-            invuln
+            invuln,
+            damageMult
         ),
     ];
     enemies.forEach((e) => shadowGenerator.addShadowCaster(e.mesh));

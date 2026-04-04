@@ -26,11 +26,13 @@ export enum CombatPhase {
     /** Combo-chain window; player can move and queue the next hit. */
     ChainWindow = "ChainWindow",
     Dodging = "Dodging",
+    Guarding = "Guarding",
     UsingAbility = "UsingAbility",
 }
 
 /**
- * Drives the player's combat behaviour: 3-hit combo, dodge roll, and two
+ * Drives the player's combat behaviour: 3-hit combo (quick–quick–finisher),
+ * dodge roll, hold-to-guard (damage reduction + brief end-lag), and two
  * active abilities — Dash Strike (E) and Spin Slash (Q).
  *
  * The controller takes references to the player's TransformNode and physics
@@ -56,6 +58,8 @@ export class CombatController {
     private activeAbilityId: string | null = null;
     /** Brief freeze timer for hit-pause game feel. */
     private hitPauseTimer = 0;
+    /** After releasing guard, incoming damage is briefly amplified (FF7R-style commitment). */
+    private guardEndVulnTimer = 0;
 
     readonly dashStrike = new DashStrikeAbility();
     readonly spinSlash = new SpinSlashAbility();
@@ -67,8 +71,11 @@ export class CombatController {
     private readonly combatStats: PlayerCombatStats | null;
     private readonly audio: CombatAudio | null;
 
-    /** Optional hook when the player deals melee damage (camera punch, VFX, etc.). */
-    onMeleeHitConnect: (() => void) | null = null;
+    /**
+     * Optional hook when the player deals melee damage (camera punch, VFX, etc.).
+     * Strength is 0.6–1.6-ish; finisher and abilities pass higher values.
+     */
+    onMeleeHitConnect: ((hitFeelStrength: number) => void) | null = null;
 
     constructor(
         playerTransform: TransformNode,
@@ -106,6 +113,7 @@ export class CombatController {
             this.phase === CombatPhase.HitWindow ||
             this.phase === CombatPhase.Lockout ||
             this.phase === CombatPhase.Dodging ||
+            this.phase === CombatPhase.Guarding ||
             this.phase === CombatPhase.UsingAbility
         );
     }
@@ -123,6 +131,20 @@ export class CombatController {
         return this.dodgeInvulnTimer > 0;
     }
 
+    /**
+     * Multiplier applied to enemy damage hitting the player (block reduces it;
+     * brief window after dropping guard increases it).
+     */
+    getIncomingDamageMultiplier(): number {
+        if (this.phase === CombatPhase.Guarding) {
+            return COMBAT_CONFIG.BLOCK_DAMAGE_TAKEN_MULT;
+        }
+        if (this.guardEndVulnTimer > 0) {
+            return COMBAT_CONFIG.BLOCK_END_DAMAGE_MULT;
+        }
+        return 1;
+    }
+
     // ── Per-frame update ───────────────────────────────────────────────────
 
     update(dt: number): void {
@@ -134,6 +156,9 @@ export class CombatController {
         }
         if (this.dodgeInvulnTimer > 0) {
             this.dodgeInvulnTimer = Math.max(0, this.dodgeInvulnTimer - dt);
+        }
+        if (this.guardEndVulnTimer > 0) {
+            this.guardEndVulnTimer = Math.max(0, this.guardEndVulnTimer - dt);
         }
 
         // Target acquisition / cycling (F or Tab)
@@ -164,6 +189,9 @@ export class CombatController {
             case CombatPhase.Dodging:
                 this.tickDodging(dt);
                 break;
+            case CombatPhase.Guarding:
+                this.tickGuarding();
+                break;
             case CombatPhase.UsingAbility:
                 this.tickAbility(dt);
                 break;
@@ -175,6 +203,8 @@ export class CombatController {
     private tickIdle(): void {
         if (this.input.isJustPressed("j") || this.input.isJustPressed("mouse0")) {
             this.beginAttack();
+        } else if (this.input.isKeyDown("mouse2")) {
+            this.beginGuard();
         } else if (this.input.isJustPressed(" ") && this.dodgeCooldown <= 0) {
             this.beginDodge();
         } else if (this.input.isJustPressed("e") && this.dashStrike.isReady()) {
@@ -187,6 +217,7 @@ export class CombatController {
     // ── Attack combo ───────────────────────────────────────────────────────
 
     private beginAttack(): void {
+        this.targeting.tryAutoAcquireMeleeTarget();
         this.phase = CombatPhase.HitWindow;
         this.phaseTimer = COMBAT_CONFIG.COMBO_HIT_WINDOW;
         this.hitDealt = false;
@@ -194,10 +225,18 @@ export class CombatController {
     }
 
     private tickHitWindow(dt: number): void {
+        if (this.input.isKeyDown("mouse2")) {
+            this.comboStep = 0;
+            this.beginGuard();
+            return;
+        }
         this.phaseTimer -= dt;
 
-        // Apply forward lunge each frame during the hit window
-        this.moveDirect(this.getForward(), COMBAT_CONFIG.ATTACK_LUNGE_SPEED, dt);
+        const finisher = this.comboStep >= COMBAT_CONFIG.COMBO_COUNT - 1;
+        const lunge =
+            COMBAT_CONFIG.ATTACK_LUNGE_SPEED *
+            (finisher ? COMBAT_CONFIG.COMBO_FINISHER_LUNGE_MULT : 1);
+        this.moveDirect(this.getForward(), lunge, dt);
 
         if (!this.hitDealt) {
             const hit = this.resolveHit(COMBAT_CONFIG.ATTACK_RANGE);
@@ -205,10 +244,15 @@ export class CombatController {
                 const base = COMBAT_CONFIG.ATTACK_DAMAGE[this.comboStep];
                 const mult = this.combatStats?.getComboDamageMultiplier() ?? 1;
                 hit.takeHit(Math.max(1, Math.round(base * mult)));
+                if (finisher || base >= 20) {
+                    hit.applyStagger(COMBAT_CONFIG.STAGGER_DURATION);
+                }
                 this.hitDealt = true;
-                this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
+                this.hitPauseTimer =
+                    COMBAT_CONFIG.HIT_PAUSE_DURATION +
+                    (finisher ? COMBAT_CONFIG.HIT_PAUSE_FINISHER_EXTRA : 0);
                 this.audio?.playMeleeHit(this.comboStep);
-                this.onMeleeHitConnect?.();
+                this.onMeleeHitConnect?.(finisher ? 1.35 : 0.88);
             }
         }
 
@@ -223,6 +267,11 @@ export class CombatController {
     }
 
     private tickLockout(dt: number): void {
+        if (this.input.isKeyDown("mouse2")) {
+            this.comboStep = 0;
+            this.beginGuard();
+            return;
+        }
         this.phaseTimer -= dt;
 
         // Buffer the next attack press during lockout
@@ -236,13 +285,21 @@ export class CombatController {
                 this.beginAttack();
             } else {
                 this.phase = CombatPhase.ChainWindow;
-                this.phaseTimer = COMBAT_CONFIG.COMBO_CHAIN_WINDOW;
+                const afterFinisher = this.comboStep >= COMBAT_CONFIG.COMBO_COUNT - 1;
+                this.phaseTimer = afterFinisher
+                    ? COMBAT_CONFIG.COMBO_CHAIN_WINDOW_AFTER_FINISHER
+                    : COMBAT_CONFIG.COMBO_CHAIN_WINDOW;
             }
         }
     }
 
     private tickChainWindow(dt: number): void {
         this.phaseTimer -= dt;
+
+        if (this.input.isKeyDown("mouse2")) {
+            this.beginGuard();
+            return;
+        }
 
         if (
             (this.input.isJustPressed("j") || this.input.isJustPressed("mouse0")) &&
@@ -279,9 +336,32 @@ export class CombatController {
         }
     }
 
+    private beginGuard(): void {
+        this.phase = CombatPhase.Guarding;
+        this.guardEndVulnTimer = 0;
+    }
+
+    /** Hold RMB (mouse2) to reduce incoming damage; releasing applies brief vulnerability. */
+    private tickGuarding(): void {
+        if (this.input.isJustPressed("j") || this.input.isJustPressed("mouse0")) {
+            this.comboStep = 0;
+            this.beginAttack();
+            return;
+        }
+        if (this.input.isJustPressed(" ") && this.dodgeCooldown <= 0) {
+            this.beginDodge();
+            return;
+        }
+        if (!this.input.isKeyDown("mouse2")) {
+            this.phase = CombatPhase.Idle;
+            this.guardEndVulnTimer = COMBAT_CONFIG.BLOCK_END_VULN_DURATION;
+        }
+    }
+
     // ── Dash Strike ability (E) ────────────────────────────────────────────
 
     private beginDashStrike(): void {
+        this.targeting.tryAutoAcquireMeleeTarget();
         this.phase = CombatPhase.UsingAbility;
         this.phaseTimer = COMBAT_CONFIG.ABILITY_DASH_STRIKE_DURATION;
         this.hitDealt = false;
@@ -301,9 +381,11 @@ export class CombatController {
             if (hit !== null) {
                 const mult = this.combatStats?.getDashStrikeDamageMultiplier() ?? 1;
                 hit.takeHit(Math.max(1, Math.round(COMBAT_CONFIG.ABILITY_DASH_STRIKE_DAMAGE * mult)));
-                this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
+                hit.applyStagger(COMBAT_CONFIG.STAGGER_DURATION);
+                this.hitPauseTimer =
+                    COMBAT_CONFIG.HIT_PAUSE_DURATION + COMBAT_CONFIG.HIT_PAUSE_ABILITY_EXTRA;
                 this.audio?.playMeleeHit(2);
-                this.onMeleeHitConnect?.();
+                this.onMeleeHitConnect?.(1.12);
             }
             this.hitDealt = true;
         }
@@ -318,6 +400,7 @@ export class CombatController {
     // ── Spin Slash ability (Q) ─────────────────────────────────────────────
 
     private beginSpinSlash(): void {
+        this.targeting.tryAutoAcquireMeleeTarget();
         this.phase = CombatPhase.UsingAbility;
         this.phaseTimer = COMBAT_CONFIG.ABILITY_SPIN_SLASH_DURATION;
         this.hitDealt = false;
@@ -346,13 +429,15 @@ export class CombatController {
                 if (dist <= COMBAT_CONFIG.ABILITY_SPIN_SLASH_RADIUS) {
                     const mult = this.combatStats?.getSpinSlashDamageMultiplier() ?? 1;
                     enemy.takeHit(Math.max(1, Math.round(COMBAT_CONFIG.ABILITY_SPIN_SLASH_DAMAGE * mult)));
+                    enemy.applyStagger(COMBAT_CONFIG.STAGGER_DURATION * 0.65);
                     hitAny = true;
                 }
             }
             if (hitAny) {
-                this.hitPauseTimer = COMBAT_CONFIG.HIT_PAUSE_DURATION;
+                this.hitPauseTimer =
+                    COMBAT_CONFIG.HIT_PAUSE_DURATION + COMBAT_CONFIG.HIT_PAUSE_ABILITY_EXTRA;
                 this.audio?.playMeleeHit(1);
-                this.onMeleeHitConnect?.();
+                this.onMeleeHitConnect?.(1.05);
             }
             this.hitDealt = true;
         }
