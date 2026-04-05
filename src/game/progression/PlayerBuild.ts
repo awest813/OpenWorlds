@@ -143,6 +143,10 @@ export class PlayerBuild {
         return Math.max(0.25, COMBAT_CONFIG.DODGE_COOLDOWN + c.dodgeCooldownReduction + s.dodgeCooldownDelta);
     }
 
+    getRiposteDamageMultiplier(): number {
+        return getPlayerClass(this.classId).riposteDamageMultiplier;
+    }
+
     /** Nodes that can be purchased this frame, in tree order (for hotkeys 1–9). */
     listUnlockableSkillNodes(): SkillNodeDefinition[] {
         return getSkillNodesForClass(this.classId).filter((n) => this.skillTreeState.canUnlock(n.id));

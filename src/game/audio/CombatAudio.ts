@@ -136,6 +136,29 @@ export class CombatAudio {
         osc.stop(t + 0.19);
     }
 
+    /** Counter hit after releasing guard during the riposte window. */
+    playRiposteHit(): void {
+        const ctx = this.getContext();
+        const dest = this.out();
+        if (!ctx || !dest) return;
+
+        const t = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = "square";
+        osc.frequency.setValueAtTime(520, t);
+        osc.frequency.exponentialRampToValueAtTime(140, t + 0.07);
+        g.gain.setValueAtTime(0.18, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+        osc.connect(g);
+        g.connect(dest);
+        osc.start(t);
+        osc.stop(t + 0.12);
+
+        const noise = this.noiseBurst(ctx, t, 0.035, 0.14, 4200);
+        if (noise) noise.connect(dest);
+    }
+
     playSpinSlash(): void {
         const ctx = this.getContext();
         const dest = this.out();

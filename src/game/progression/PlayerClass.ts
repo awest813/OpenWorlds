@@ -14,6 +14,8 @@ export interface PlayerClassDefinition {
     readonly spinSlashDamageMultiplier: number;
     /** Seconds subtracted from dodge cooldown (minimum handled in combat). */
     readonly dodgeCooldownReduction: number;
+    /** Multiplier on melee damage when striking during the post-guard riposte window. */
+    readonly riposteDamageMultiplier: number;
 }
 
 export const PLAYER_CLASSES: Record<PlayerClassId, PlayerClassDefinition> = {
@@ -26,6 +28,7 @@ export const PLAYER_CLASSES: Record<PlayerClassId, PlayerClassDefinition> = {
         dashStrikeDamageMultiplier: 1.15,
         spinSlashDamageMultiplier: 1.05,
         dodgeCooldownReduction: 0.15,
+        riposteDamageMultiplier: 1.1,
     },
     duelist: {
         id: "duelist",
@@ -36,6 +39,7 @@ export const PLAYER_CLASSES: Record<PlayerClassId, PlayerClassDefinition> = {
         dashStrikeDamageMultiplier: 1.0,
         spinSlashDamageMultiplier: 1.08,
         dodgeCooldownReduction: 0,
+        riposteDamageMultiplier: 1.06,
     },
     warden: {
         id: "warden",
@@ -46,6 +50,7 @@ export const PLAYER_CLASSES: Record<PlayerClassId, PlayerClassDefinition> = {
         dashStrikeDamageMultiplier: 0.95,
         spinSlashDamageMultiplier: 1.2,
         dodgeCooldownReduction: -0.12,
+        riposteDamageMultiplier: 1.18,
     },
 };
 
