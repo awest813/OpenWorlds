@@ -39,6 +39,14 @@ export const COMBAT_CONFIG = {
     BLOCK_END_VULN_DURATION: 0.12,
     /** Damage multiplier right after releasing guard (punish for mistimed blocks). */
     BLOCK_END_DAMAGE_MULT: 1.22,
+    /**
+     * After releasing guard, this window allows a counter swing: incoming damage
+     * uses the normal multiplier (riposte stance overrides block-end vuln), and
+     * the next melee hit that connects deals bonus damage and clears block-end vuln.
+     */
+    RIPOSTE_WINDOW: 0.42,
+    /** Extra damage multiplier on a melee hit that lands during the riposte window. */
+    RIPOSTE_DAMAGE_MULT: 1.32,
 
     // ── Dash Strike ability (E) ────────────────────────────────────────────
     ABILITY_DASH_STRIKE_RANGE: 6.0,

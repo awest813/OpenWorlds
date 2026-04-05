@@ -15,6 +15,7 @@ export interface PlayerCombatStats {
     getDashStrikeDamageMultiplier(): number;
     getSpinSlashDamageMultiplier(): number;
     getDodgeCooldownSeconds(): number;
+    getRiposteDamageMultiplier(): number;
 }
 
 export enum CombatPhase {
@@ -60,6 +61,8 @@ export class CombatController {
     private hitPauseTimer = 0;
     /** After releasing guard, incoming damage is briefly amplified (FF7R-style commitment). */
     private guardEndVulnTimer = 0;
+    /** Time left to land a riposte after dropping guard (bonus damage + clears block-end vuln on hit). */
+    private riposteWindowTimer = 0;
 
     readonly dashStrike = new DashStrikeAbility();
     readonly spinSlash = new SpinSlashAbility();
@@ -139,10 +142,18 @@ export class CombatController {
         if (this.phase === CombatPhase.Guarding) {
             return COMBAT_CONFIG.BLOCK_DAMAGE_TAKEN_MULT;
         }
+        if (this.riposteWindowTimer > 0) {
+            return 1;
+        }
         if (this.guardEndVulnTimer > 0) {
             return COMBAT_CONFIG.BLOCK_END_DAMAGE_MULT;
         }
         return 1;
+    }
+
+    /** True while the player can land a counter hit after releasing guard. */
+    isRiposteWindowActive(): boolean {
+        return this.riposteWindowTimer > 0;
     }
 
     // ── Per-frame update ───────────────────────────────────────────────────
@@ -159,6 +170,9 @@ export class CombatController {
         }
         if (this.guardEndVulnTimer > 0) {
             this.guardEndVulnTimer = Math.max(0, this.guardEndVulnTimer - dt);
+        }
+        if (this.riposteWindowTimer > 0) {
+            this.riposteWindowTimer = Math.max(0, this.riposteWindowTimer - dt);
         }
 
         // Target acquisition / cycling (F or Tab)
@@ -243,16 +257,29 @@ export class CombatController {
             if (hit !== null) {
                 const base = COMBAT_CONFIG.ATTACK_DAMAGE[this.comboStep];
                 const mult = this.combatStats?.getComboDamageMultiplier() ?? 1;
-                hit.takeHit(Math.max(1, Math.round(base * mult)));
+                const riposteActive = this.riposteWindowTimer > 0;
+                const riposteMult =
+                    riposteActive
+                        ? COMBAT_CONFIG.RIPOSTE_DAMAGE_MULT * (this.combatStats?.getRiposteDamageMultiplier() ?? 1)
+                        : 1;
+                hit.takeHit(Math.max(1, Math.round(base * mult * riposteMult)));
                 if (finisher || base >= 20) {
                     hit.applyStagger(COMBAT_CONFIG.STAGGER_DURATION);
+                }
+                if (riposteActive) {
+                    this.guardEndVulnTimer = 0;
+                    this.riposteWindowTimer = 0;
+                    this.audio?.playRiposteHit();
+                } else {
+                    this.audio?.playMeleeHit(this.comboStep);
                 }
                 this.hitDealt = true;
                 this.hitPauseTimer =
                     COMBAT_CONFIG.HIT_PAUSE_DURATION +
                     (finisher ? COMBAT_CONFIG.HIT_PAUSE_FINISHER_EXTRA : 0);
-                this.audio?.playMeleeHit(this.comboStep);
-                this.onMeleeHitConnect?.(finisher ? 1.35 : 0.88);
+                this.onMeleeHitConnect?.(
+                    finisher ? 1.35 : riposteActive ? 1.12 : 0.88
+                );
             }
         }
 
@@ -319,6 +346,7 @@ export class CombatController {
     // ── Dodge ──────────────────────────────────────────────────────────────
 
     private beginDodge(): void {
+        this.riposteWindowTimer = 0;
         this.phase = CombatPhase.Dodging;
         this.phaseTimer = COMBAT_CONFIG.DODGE_DURATION;
         this.dodgeCooldown = this.combatStats?.getDodgeCooldownSeconds() ?? COMBAT_CONFIG.DODGE_COOLDOWN;
@@ -339,6 +367,7 @@ export class CombatController {
     private beginGuard(): void {
         this.phase = CombatPhase.Guarding;
         this.guardEndVulnTimer = 0;
+        this.riposteWindowTimer = 0;
     }
 
     /** Hold RMB (mouse2) to reduce incoming damage; releasing applies brief vulnerability. */
@@ -355,12 +384,14 @@ export class CombatController {
         if (!this.input.isKeyDown("mouse2")) {
             this.phase = CombatPhase.Idle;
             this.guardEndVulnTimer = COMBAT_CONFIG.BLOCK_END_VULN_DURATION;
+            this.riposteWindowTimer = COMBAT_CONFIG.RIPOSTE_WINDOW;
         }
     }
 
     // ── Dash Strike ability (E) ────────────────────────────────────────────
 
     private beginDashStrike(): void {
+        this.riposteWindowTimer = 0;
         this.targeting.tryAutoAcquireMeleeTarget();
         this.phase = CombatPhase.UsingAbility;
         this.phaseTimer = COMBAT_CONFIG.ABILITY_DASH_STRIKE_DURATION;
@@ -400,6 +431,7 @@ export class CombatController {
     // ── Spin Slash ability (Q) ─────────────────────────────────────────────
 
     private beginSpinSlash(): void {
+        this.riposteWindowTimer = 0;
         this.targeting.tryAutoAcquireMeleeTarget();
         this.phase = CombatPhase.UsingAbility;
         this.phaseTimer = COMBAT_CONFIG.ABILITY_SPIN_SLASH_DURATION;
